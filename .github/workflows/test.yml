@@ -1,0 +1,139 @@
+name: Test
+
+on:
+  push:
+    branches:
+    - develop
+  pull_request:
+
+jobs:
+  cpp-linux:
+    name: 'C++ tests (gcc-clang/Linux/x64)'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type:
+          - Debug
+          - Release
+        compiler:
+          - clang++
+          - g++
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Get latest CMake
+        uses: lukka/get-cmake@latest
+      - name: Create build directory
+        run: mkdir -p build-${{ matrix.compiler }}-${{ matrix.build_type }}
+      - name: Configure
+        env:
+          CXX: ${{ matrix.compiler }}
+        working-directory: build-${{ matrix.compiler }}-${{ matrix.build_type }}
+        run: cmake -S .. -B . -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DQX_BUILD_TESTS=ON
+      - name: Build
+        working-directory: build-${{ matrix.compiler }}-${{ matrix.build_type }}
+        run: cmake --build . --parallel 10
+      - name: Test
+        working-directory: build-${{ matrix.compiler }}-${{ matrix.build_type }}
+        run: ctest -C ${{ matrix.build_type }} --output-on-failure
+
+  cpp-macos:
+    name: 'C++ tests (clang/MacOS/x64)'
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type:
+          - Debug
+          - Release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install flex/bison
+        run: |
+          brew install flex bison
+          echo "$(brew --prefix flex)/bin" >> $GITHUB_PATH
+          echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
+      - name: Get latest CMake
+        uses: lukka/get-cmake@latest
+      - name: Create build directory
+        run: mkdir -p build-${{ matrix.build_type }}
+      - name: Configure
+        working-directory: build-${{ matrix.build_type }}
+        run: cmake -S .. -B . -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DQX_BUILD_TESTS=ON
+      - name: Build
+        working-directory: build-${{ matrix.build_type }}
+        run: cmake --build . --parallel 10
+      - name: Test
+        working-directory: build-${{ matrix.build_type }}
+        run: ctest -C ${{ matrix.build_type }} --output-on-failure
+
+  cpp-windows:
+    name: 'C++ tests (msvc/Windows/x64)'
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type:
+          - Debug
+          - Release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install Winflexbison3
+        shell: powershell
+        run: choco install winflexbison3 --version 2.5.24.20210105
+      - name: Get latest CMake
+        uses: lukka/get-cmake@latest
+      - name: Create build directory
+        run: mkdir -p build-${{ matrix.build_type }}
+      - name: Configure
+        working-directory: build-${{ matrix.build_type }}
+        run: cmake -S .. -B . -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DQX_BUILD_TESTS=ON
+      - name: Build
+        working-directory: build-${{ matrix.build_type }}
+        run: cmake --build . --parallel 10 --config ${{ matrix.build_type }}
+      - name: Test
+        working-directory: build-${{ matrix.build_type }}
+        run: ctest -C ${{ matrix.build_type }} --output-on-failure
+
+  cpp-arm64:
+    name: 'C++ tests (gcc/Linux/ARM64, clang/MacOS/ARM64)'
+    runs-on: [self-hosted, ARM64, "${{ matrix.os }}"]
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - Linux
+          - macOS
+    steps:
+      - if: matrix.os == 'Linux'
+        name: Install flex/bison, and gcc (Linux)
+        run: |
+          sudo apt-get -y update
+          sudo apt-get -y upgrade
+          sudo apt-get -y install flex bison gcc
+        shell: bash
+      - if: matrix.os == 'macOS'
+        name: Install flex/bison, and gcc (MacOS)
+        run: |
+          brew install flex bison gcc
+          echo "$(brew --prefix flex)/bin" >> $GITHUB_PATH
+          echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
+        shell: bash
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Get latest CMake
+        uses: lukka/get-cmake@latest
+      - name: Create build directory
+        run: mkdir -p build
+      - name: Configure
+        working-directory: build
+        run: cmake -S .. -B . -DCMAKE_BUILD_TYPE=Release -DQX_BUILD_TESTS=ON
+      - name: Build
+        working-directory: build
+        run: cmake --build . --parallel 10
+      - name: Test
+        working-directory: build
+        run: ctest -C Release --output-on-failure

@@ -1,0 +1,316 @@
+#pragma once
+
+#include <array>
+#include <cassert>
+#include <climits>
+#include <limits>
+#include <string>
+#include <bit>
+#include <optional>
+#include <compare>
+
+#include <immintrin.h> // pdep, pext
+
+namespace superpositeur {
+namespace utils {
+
+inline bool getBit(std::uint64_t x, std::uint64_t index) {
+    return (x >> index) & 1; // FIXME: use pext?
+}
+
+inline void setBit(std::uint64_t &x, std::uint64_t index, bool value) {
+    assert(index < 64);
+    x = (x & ~(1UL << index)) | (static_cast<std::uint64_t>(value) << index); // FIXME: use pdep?
+}
+
+// std::bitset does not have an operator<. Here, only multiples of 64 bits are allowed.
+
+template <std::uint64_t NumberOfBits> class BitSet {
+
+private:
+    static constexpr std::uint64_t BITS_PER_UNIT =
+        CHAR_BIT * sizeof(std::uint64_t);
+    static_assert(BITS_PER_UNIT == 64);
+
+    static_assert(NumberOfBits % BITS_PER_UNIT == 0);
+
+public:
+    static constexpr std::uint64_t STORAGE_SIZE = NumberOfBits / BITS_PER_UNIT;
+
+    static constexpr std::uint64_t getNumberOfBits() { return NumberOfBits; }
+
+    BitSet() = default;
+
+    BitSet(std::string_view s) {
+        assert(s.size() <= NumberOfBits);
+        std::uint64_t i = 0;
+        for (auto it = s.rbegin(); it != s.rend(); ++it, ++i) {
+            set(i, *it == '1' ? true : false);
+        }
+    }
+
+    BitSet(std::uint64_t s) {
+        data[0] = s;
+    }
+
+    inline std::uint64_t popcount() {
+        std::uint64_t result = 0;
+        for (auto const& x: data) {
+            result += std::popcount(x);
+        }
+
+        return result;
+    }
+
+    template <std::uint64_t MaskNumberOfBits>
+    void operator&=(BitSet<MaskNumberOfBits> mask) {
+        for (std::uint64_t i = 0; i < std::min(STORAGE_SIZE, BitSet<MaskNumberOfBits>::STORAGE_SIZE); ++i) {
+            data[i] &= mask.data[i];
+        }
+    }
+
+    inline void reset() { data = {}; }
+
+    inline bool test(std::uint64_t index) const {
+        assert(index < NumberOfBits &&
+               "BitSet::test bit index out of range");
+        return getBit(data[index / BITS_PER_UNIT], index % BITS_PER_UNIT);
+    }
+
+    inline void set(std::uint64_t index, bool value = true) {
+        assert(index < NumberOfBits &&
+               "BitSet::set bit index out of range");
+        setBit(data[index / BITS_PER_UNIT], index % BITS_PER_UNIT, value);
+    }
+
+    inline auto operator<=>(BitSet<NumberOfBits> const &other) const {
+        return SPACESHIP(other);
+    }
+
+    inline bool operator==(BitSet<NumberOfBits> const &other) const {
+        return data == other.data;
+    }
+
+    inline void operator^=(BitSet<NumberOfBits> const &other) {
+        for (std::uint64_t i = 0; i < STORAGE_SIZE; ++i) {
+            data[i] ^= other.data[i];
+        }
+    }
+
+    inline BitSet<NumberOfBits> operator~() const {
+        BitSet<NumberOfBits> result = *this;
+        for (std::uint64_t i = 0; i < result.STORAGE_SIZE; ++i) {
+            result.data[i] = ~result.data[i];
+        }
+        return result;
+    }
+
+    inline void operator&=(BitSet<NumberOfBits> const &other) {
+        for (std::uint64_t i = 0; i < STORAGE_SIZE; ++i) {
+            data[i] &= other.data[i];
+        }
+    }
+
+    inline BitSet<NumberOfBits> operator&(BitSet<NumberOfBits> const &other) const {
+        auto result = *this;
+        result &= other;
+        return result;
+    }
+
+    inline void operator|=(BitSet<NumberOfBits> const &other) {
+        for (std::uint64_t i = 0; i < STORAGE_SIZE; ++i) {
+            data[i] |= other.data[i];
+        }
+    }
+
+    inline BitSet<NumberOfBits> operator|(BitSet<NumberOfBits> const &other) const {
+        auto result = *this;
+        result |= other;
+        return result;
+    }
+
+    inline BitSet<NumberOfBits> operator^(BitSet<NumberOfBits> const &other) const {
+        auto result = *this;
+        result ^= other;
+        return result;
+    }
+
+    inline void operator++() {
+        for (auto &d : data) {
+            if (d < std::numeric_limits<std::uint64_t>::max()) {
+                ++d;
+                return;
+            }
+            d = 0;
+        }
+    }
+
+    BitSet operator+(BitSet other) {
+        BitSet result = *this;
+        std::uint64_t carry = 0;
+        for (std::uint64_t i = 0; i < STORAGE_SIZE; ++i) {
+            result.data[i] += carry;
+            carry = result.data[i] < carry;
+            result.data[i] += other.data[i];
+            carry += result.data[i] < other.data[i];
+        }
+
+        return result;
+    }
+
+    BitSet operator+(std::uint64_t n) {
+        BitSet result = *this;
+        result.data[0] += n;
+        if (result.STORAGE_SIZE > 1) {
+            result.data[1] += (result.data[0] < n);
+        }
+
+        return result;
+    }
+
+    BitSet operator<<(std::uint64_t n) {
+        BitSet result;
+
+        if (n >= NumberOfBits) {
+            return result;
+        }
+
+        std::uint64_t div = n / BITS_PER_UNIT;
+        std::uint64_t rem = n % BITS_PER_UNIT;
+
+        assert(div < STORAGE_SIZE);
+
+        std::uint64_t topMask = rem == 0UL ? 0UL : (~0UL) << (BITS_PER_UNIT - rem);
+
+        result.data[div] = data[0] << rem;
+        for (std::uint64_t i = div + 1; i < STORAGE_SIZE; ++i) {
+            result.data[i] = data[i - div] << rem;
+            result.data[i] |= _pext_u64(data[i - div - 1], topMask);
+        }
+
+        return result;
+    }
+
+    std::uint64_t toUInt64() const {
+#ifndef NDEBUG
+        for (std::uint64_t i = 1; i < STORAGE_SIZE; ++i) {
+            assert(data[i] == 0);
+        }
+#endif
+
+        return data[0];
+    }
+
+    std::string toString() const {
+        std::string result(NumberOfBits, '0');
+        for (std::uint64_t i = 0; i < NumberOfBits; ++i) {
+            if (test(NumberOfBits - i - 1)) {
+                result[i] = '1';
+            }
+        }
+        return result;
+    }
+
+    std::uint64_t hash() const {
+        std::uint64_t result = data[STORAGE_SIZE - 1];
+        for (std::uint64_t i = 2; i <= STORAGE_SIZE; ++i) {
+            result = 3 * result + data[STORAGE_SIZE - i];
+        }
+        return result;
+    }
+
+    std::uint64_t countlZero() {
+        std::uint64_t result = 0;
+
+        for (std::uint64_t i = 1; i <= STORAGE_SIZE; ++i) {
+            std::uint64_t partialCountlZero = std::countl_zero(data[STORAGE_SIZE - i]);
+            result += partialCountlZero;
+            if (partialCountlZero < BITS_PER_UNIT) {
+                return result;
+            }
+        }
+
+        return result;
+    }
+
+    std::optional<BitSet> nextWithBits(BitSet mask, BitSet bits) const { // FIXME: remove optional.
+        if (*this >= (((~BitSet(0)) & (~mask)) | (mask & bits))) {
+            return std::nullopt;
+        }
+
+        BitSet x = *this;
+
+        auto fixedBitsDifference = (x ^ bits) & mask;
+
+        if (fixedBitsDifference == BitSet())
+        {
+            x = (((x | mask) + 1) & ~mask) | bits;
+        }
+        else
+        {
+            BitSet maskOfHighestViolation;
+            maskOfHighestViolation.set(NumberOfBits - fixedBitsDifference.countlZero() - 1);
+            x = (((x | mask) + (x & maskOfHighestViolation)) & ~mask) | bits;
+            x &= (~BitSet()) << (NumberOfBits - fixedBitsDifference.countlZero());
+            x |= bits;
+        }
+        
+        // Some specification of this function.
+        assert(x > *this);
+        assert((x & mask) == bits); // Does bits have to be 0 outside of mask?
+
+        return x; // FIXME: optional when too much
+    }
+
+    template<std::uint64_t> friend class BitSet;
+
+    template <std::uint64_t MaskNumberOfBits>
+    std::uint64_t pext(BitSet<MaskNumberOfBits> mask) const {
+        assert(mask.popcount() <= BITS_PER_UNIT);
+
+        std::uint64_t result = 0;
+        std::uint64_t bitsDone = 0;
+        for (std::uint64_t i = 0; i < std::min(STORAGE_SIZE, BitSet<MaskNumberOfBits>::STORAGE_SIZE); ++i) {
+            std::uint64_t partial = _pext_u64(data[i], mask.data[i]);
+            result |= (partial << bitsDone);
+            bitsDone += std::popcount(mask.data[i]);
+        }
+        return result;
+    }
+
+    template <std::uint64_t MaskNumberOfBits>
+    BitSet pdep(std::uint64_t source, BitSet<MaskNumberOfBits> mask) const {
+        assert(mask.popcount() <= BITS_PER_UNIT);
+
+        BitSet result;
+        std::uint64_t bitsDone = 0;
+        for (std::uint64_t i = 0; i < std::min(STORAGE_SIZE, BitSet<MaskNumberOfBits>::STORAGE_SIZE); ++i) {
+            std::uint64_t partial = _pdep_u64(source >> bitsDone, mask.data[i]);
+            result.data[i] = (data[i] & (~mask.data[i])) | partial;
+            bitsDone += std::popcount(mask.data[i]);
+        }
+
+        return result;
+    }
+
+private:
+    template <std::uint64_t Index = STORAGE_SIZE - 1>
+    inline auto SPACESHIP(BitSet<NumberOfBits> const &other) const {
+        auto x = data[Index] <=> other.data[Index];
+        if constexpr (Index > 0) {
+            if (x == 0) {
+                return SPACESHIP<Index - 1>(other);
+            }
+        }
+
+        return x;
+    }
+
+    std::array<std::uint64_t, STORAGE_SIZE> data{};
+};
+
+static_assert(BitSet<64>::STORAGE_SIZE == 1);
+static_assert(BitSet<128>::STORAGE_SIZE == 2);
+
+} // namespace utils
+} // namespace  superpositeur
