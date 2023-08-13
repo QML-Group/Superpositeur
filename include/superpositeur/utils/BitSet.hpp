@@ -53,7 +53,7 @@ public:
         data[0] = s;
     }
 
-    inline std::uint64_t popcount() {
+    inline std::uint64_t popcount() const {
         std::uint64_t result = 0;
         for (auto const& x: data) {
             result += std::popcount(x);
@@ -219,7 +219,7 @@ public:
         return result;
     }
 
-    std::uint64_t countlZero() {
+    std::uint64_t countlZero() const {
         std::uint64_t result = 0;
 
         for (std::uint64_t i = 1; i <= STORAGE_SIZE; ++i) {
@@ -231,6 +231,10 @@ public:
         }
 
         return result;
+    }
+    
+    inline std::uint64_t bitWidth() const {
+        return NumberOfBits - countlZero();
     }
 
     std::optional<BitSet> nextWithBits(BitSet mask, BitSet bits) const { // FIXME: remove optional.

@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "superpositeur/Matrix.hpp"
+#include "superpositeur/CircuitInstruction.hpp"
 
 namespace superpositeur {
 
@@ -12,9 +12,9 @@ TEST_F(OperandPermutationTest, CNOT) {
                 {0, 0, 0, 1},
                 {0, 0, 1, 0}};
     
-    EXPECT_EQ(applyOperands(cnot, {{1}, {0}}), cnot);
+    EXPECT_EQ(applyQubitOperandPermutation(cnot, {1, 0}), cnot);
 
-    auto output = applyOperands(cnot, {{0}, {1}});
+    auto output = applyQubitOperandPermutation(cnot, {0, 1});
 
     Matrix reversedCnot{{1, 0, 0, 0},
                         {0, 0, 0, 1},
@@ -34,9 +34,9 @@ TEST_F(OperandPermutationTest, Toffoli) {
                    {0, 0, 0, 0, 0, 0, 0, 1},
                    {0, 0, 0, 0, 0, 0, 1, 0}};
 
-    EXPECT_EQ(applyOperands(toffoli, {{2}, {1}, {0}}), toffoli);
+    EXPECT_EQ(applyQubitOperandPermutation(toffoli, {2, 1, 0}), toffoli);
 
-    auto output = applyOperands(toffoli, {{0}, {1}, {2}});
+    auto output = applyQubitOperandPermutation(toffoli, {0, 1, 2});
 
     Matrix tccToffoli{{1, 0, 0, 0, 0, 0, 0, 0},
                       {0, 1, 0, 0, 0, 0, 0, 0},
@@ -49,7 +49,7 @@ TEST_F(OperandPermutationTest, Toffoli) {
 
     EXPECT_EQ(output, tccToffoli);
 
-    auto output1 = applyOperands(toffoli, {{0}, {2}, {1}});
+    auto output1 = applyQubitOperandPermutation(toffoli, {0, 2, 1});
     EXPECT_EQ(output1, tccToffoli);
 
     Matrix ctcToffoli{{1, 0, 0, 0, 0, 0, 0, 0},
@@ -61,8 +61,8 @@ TEST_F(OperandPermutationTest, Toffoli) {
                       {0, 0, 0, 0, 0, 0, 1, 0},
                       {0, 0, 0, 0, 0, 1, 0, 0}};
 
-    auto output2 = applyOperands(toffoli, {{2}, {0}, {1}});
-    auto output3 = applyOperands(toffoli, {{1}, {0}, {2}});
+    auto output2 = applyQubitOperandPermutation(toffoli, {2, 0, 1});
+    auto output3 = applyQubitOperandPermutation(toffoli, {1, 0, 2});
     EXPECT_EQ(output2, ctcToffoli);
     EXPECT_EQ(output3, ctcToffoli);
 

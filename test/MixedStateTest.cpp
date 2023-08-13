@@ -6,26 +6,26 @@ namespace superpositeur {
 
 using namespace std::complex_literals;
 
-class MixedStateTest : public ::testing::Test {
-protected:
-    using BV = BasisVector<64>;
+// class MixedStateTest : public ::testing::Test {
+// protected:
+//     using BV = BasisVector<64>;
 
-    static void checkEqComplex(std::complex<double> left,
-                               std::complex<double> right) {
-        EXPECT_EQ(left.real(), right.real());
-        EXPECT_EQ(left.imag(), right.imag());
-    }
+//     static void checkEqComplex(std::complex<double> left,
+//                                std::complex<double> right) {
+//         EXPECT_EQ(left.real(), right.real());
+//         EXPECT_EQ(left.imag(), right.imag());
+//     }
 
-    static void checkMatrix(
-        MixedState const &victim,
-        std::initializer_list<std::initializer_list<std::complex<double>>>
-            expected) {
-        auto actual = victim.getMatrixOfVectors();
-        auto expectedMatrix = Matrix(expected);
+//     static void checkMatrix(
+//         MixedState const &victim,
+//         std::initializer_list<std::initializer_list<std::complex<double>>>
+//             expected) {
+//         auto actual = victim.getMatrixOfVectors();
+//         auto expectedMatrix = Matrix(expected);
 
-        EXPECT_EQ(actual, expectedMatrix);
-    }
-};
+//         EXPECT_EQ(actual, expectedMatrix);
+//     }
+// };
 
 // TEST_F(MixedStateTest, "Identity") {
 //     MixedState victim(1);

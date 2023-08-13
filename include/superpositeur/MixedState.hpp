@@ -5,6 +5,7 @@
 #include <limits>
 #include <ranges>
 #include <algorithm>
+#include <variant>
 
 #include "superpositeur/CircuitInstruction.hpp"
 #include "superpositeur/Common.hpp"
@@ -17,15 +18,27 @@ namespace superpositeur {
 
 class MixedState {
 public:
-    explicit MixedState(std::uint64_t n) : numberOfQubits(n), dataVariant(initDataVariant(numberOfQubits)), sizes({1}), hashes({0}) {}
+    explicit MixedState() : dataVariant(SparseVector<64>{{BasisVector<64>{}, 1.}}), sizes({1}), hashes({0}) {}
 
-    std::uint64_t getNumberOfQubits() const { return numberOfQubits; }
+    void reset() {
+        dataVariant = SparseVector<64>{{BasisVector<64>{}, 1.}};
+        sizes = {1};
+        hashes = {0};
+    }
 
-    bool operator==(MixedState const &other) const {
-        if (getNumberOfQubits() != other.getNumberOfQubits()) {
-            return false;
-        }
+    std::uint64_t currentSize() const {
+        return std::visit([](auto const& data) { return std::remove_reference<decltype(data)>::type::value_type::first_type::getNumberOfBits(); }, dataVariant);
+    }
 
+    template <std::uint64_t NumberOfQubits>
+    void resize() {
+        static_assert(NumberOfQubits % 64 == 0); // FIXME
+        assert(currentSize() < NumberOfQubits);
+        assert(NumberOfQubits == 128); // FIXME
+        throw std::runtime_error("Unimplemented");
+    }
+
+    bool operator==(MixedState const &) const {
         throw std::runtime_error("Measure of distance between two mixed states not implemented");
     }
 
@@ -83,6 +96,15 @@ public:
     void operator()(CircuitInstruction const &circuitInstruction) {
         simplify();
         
+        auto bitWidth = circuitInstruction.getOperandsMask().bitWidth();
+        if (bitWidth > currentSize()) {
+            if (bitWidth <= 128) {
+                resize<128>();
+            } else {
+                throw std::runtime_error("Cannot handle that many qubits!");
+            }
+        }
+
         std::visit([&](auto&& variant) {
             applyCircuitInstruction(circuitInstruction, variant);
         }, dataVariant);
@@ -209,19 +231,19 @@ private:
 public:
     ReducedDensityMatrixIterator getReducedDensityMatrixIterator(std::vector<bool> qubits) const {
         assert(isConsistent());
-        assert(qubits.size() <= getNumberOfQubits()); // In fact: only highest set bit must be <= getNumberOfQubits().
+        assert(std::ranges::find_if(qubits.rbegin(), qubits.rend(), std::identity{}) - qubits.rend() < 128); // FIXME
 
         return std::visit([&](auto&& x) {
             return ReducedDensityMatrixIterator(x, sizes, qubits);
         }, dataVariant);
     }
 
-    Matrix getReducedDensityMatrix(std::optional<std::vector<bool>> const& maskOptional = std::nullopt) {
-        auto popcount = maskOptional ? std::ranges::count_if(*maskOptional, [](auto x) { return x; }) : getNumberOfQubits();
+    Matrix getReducedDensityMatrix(std::vector<bool> const& mask) {
+        auto popcount = std::ranges::count_if(mask, [](auto x) { return x; });
 
         assert(popcount > 0 && popcount < 64);
 
-        auto reducedDensityMatrixIterator = getReducedDensityMatrixIterator(maskOptional ? *maskOptional : std::vector<bool>(getNumberOfQubits(), true));
+        auto reducedDensityMatrixIterator = getReducedDensityMatrixIterator(mask);
 
         Matrix m(1UL << popcount, 1UL << popcount);
         while (auto densityMatrixEntry = reducedDensityMatrixIterator.next()) {
@@ -237,26 +259,22 @@ public:
         return m;
     }
 
-    Matrix getMatrixOfVectors() const {
-        if (getNumberOfQubits() > 8) {
-            throw std::runtime_error("This is already quite large yo - function indeed for testing purposes");
-        }
+    // Matrix getMatrixOfVectors() const {
+    //     return std::visit([&](auto const& data) {
+    //         Matrix m(sizes.size(), 1UL << getNumberOfQubits(???));
 
-        return std::visit([&](auto const& data) {
-            Matrix m(sizes.size(), 1UL << getNumberOfQubits());
-
-            auto it = data.cbegin();
-            for (std::uint64_t i = 0; i < sizes.size(); ++i) {
-                for (std::uint64_t x = 0; x < sizes[i]; ++x) {
-                    assert(it != data.cend());
-                    std::uint64_t j = it->first.toUInt64();
-                    m.set(i, j, it->second);
-                    ++it;
-                }
-            }
-            return m;
-        }, dataVariant);
-    }
+    //         auto it = data.cbegin();
+    //         for (std::uint64_t i = 0; i < sizes.size(); ++i) {
+    //             for (std::uint64_t x = 0; x < sizes[i]; ++x) {
+    //                 assert(it != data.cend());
+    //                 std::uint64_t j = it->first.toUInt64();
+    //                 m.set(i, j, it->second);
+    //                 ++it;
+    //             }
+    //         }
+    //         return m;
+    //     }, dataVariant);
+    // }
 
 private:
     static std::variant<SparseVector<64>, SparseVector<128>> initDataVariant(std::uint64_t n) {
@@ -273,7 +291,6 @@ private:
 
     bool isConsistent() const;
 
-    std::uint64_t const numberOfQubits = 1;
     std::variant<SparseVector<64>, SparseVector<128>> dataVariant;
     Sizes sizes;
     Hashes hashes;

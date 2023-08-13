@@ -20,18 +20,7 @@ set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
 include(FetchContent)
 
-option(LIBQASM_COMPAT "" ON)
-FetchContent_Declare(cqasm
-    GIT_REPOSITORY https://github.com/QuTech-Delft/libqasm.git
-    GIT_TAG "8d0b4ed5e3a30aa6fde3b3aaf20a207b5d07876e"
-)
-FetchContent_MakeAvailable(cqasm)
-
-FetchContent_Declare(fmt
-    GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-    GIT_TAG "a0b8a92e3d1532361c2f7feb63babc5c18d00ef2"
-    )
-FetchContent_MakeAvailable(fmt)
+# None for now, except Google test in the test/ directory.
 
 #=============================================================================#
 # Superpositeur CMake library                                                 #
@@ -43,20 +32,14 @@ add_library(superpositeur
     "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/CircuitInstruction.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/DefaultOperations.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/GivensRotation.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/LibqasmInterface.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/Matrix.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/MatrixSparseVectorMultiplication.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/MixedState.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/Operations.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/QuantumOperation.cpp"
 )
 
 target_include_directories(superpositeur
     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/"
-)
-
-target_link_libraries(superpositeur PUBLIC
-    cqasm
-    fmt
 )
 
 #=============================================================================#

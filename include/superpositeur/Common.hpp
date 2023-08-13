@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "superpositeur/utils/BitSet.hpp"
+#include "superpositeur/Matrix.hpp"
 
 namespace superpositeur {
 
@@ -18,5 +19,7 @@ using SparseVector = std::vector<KeyValue<MaxNumberOfQubits>>; // Association li
 
 using Sizes = std::vector<std::uint64_t>;
 using Hashes = std::vector<std::uint64_t>;
+
+using KrausOperators = std::vector<Matrix>;
 
 } // namespace  superpositeur

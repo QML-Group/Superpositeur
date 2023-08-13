@@ -5,15 +5,16 @@
 #include <span>
 
 #include "superpositeur/Common.hpp"
+#include "superpositeur/StrongTypes.hpp"
 #include "superpositeur/config/CompileTimeConfiguration.hpp"
-#include "superpositeur/Matrix.hpp"
-#include "superpositeur/Operations.hpp"
+#include "superpositeur/QuantumOperation.hpp"
 
 namespace superpositeur {
 
+Matrix applyQubitOperandPermutation(Matrix input, std::vector<std::uint64_t> const& operands);
+
 class CircuitInstruction {
 public:
-    using KrausOperators = Operations::KrausOperators;
     using QubitIndexVector = std::vector<QubitIndex>;
 
     static std::uint64_t constexpr MaxNumberOfQubits = 128;
@@ -25,10 +26,7 @@ public:
 
         assert(operands.size() <= MaxNumberOfQubits);
 
-#ifndef NDEBUG
-        Operations::checkValidKrausOperatorSet(
-            "unknown", operands.size(), inputKrausOperators);
-#endif
+        QuantumOperation::checkValidKrausOperatorSet(inputKrausOperators);
 
         for (auto op: operands) {
             assert(op.value < MaxNumberOfQubits);
@@ -36,14 +34,14 @@ public:
         }
 
         // Find permutation to apply to the Kraus operators.
-        std::vector<QubitIndex> perm(operands.size(), QubitIndex{0});
-        std::iota(perm.begin(), perm.end(), QubitIndex{0});
+        std::vector<std::uint64_t> perm(operands.size(), 0);
+        std::iota(perm.begin(), perm.end(), 0);
         std::ranges::sort(perm, [&](auto left, auto right) {
-            return operands[left.value] < operands[right.value];
+            return operands[left] < operands[right];
         });
 
         for (auto const& krausOperator: inputKrausOperators) {
-            krausOperators.push_back(applyOperands(krausOperator, perm));
+            krausOperators.push_back(applyQubitOperandPermutation(krausOperator, perm));
         }
 
         for (auto q: controlQubits) {

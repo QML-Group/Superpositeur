@@ -68,7 +68,7 @@ public:
             ++terms.back().iterator;
         } else {
             do {
-                ++terms.back().iterator;
+                ++terms.back().iterator; // FIXME: use lower_bound and nextWithBits.
             } while (terms.back().iterator != span.end() && terms.back().iterator->first.pext(operands) != input);
         }
 

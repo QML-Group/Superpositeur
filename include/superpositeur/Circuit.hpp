@@ -23,7 +23,7 @@ public:
     }
 
     MixedState execute() const {
-        auto quantumState = MixedState(numberOfQubits);
+        MixedState quantumState;
 
         for (auto const& x: data) {
             if (auto* loop = std::get_if<Loop>(&x)) {
