@@ -3,6 +3,8 @@
 #include "superpositeur/Common.hpp"
 #include "superpositeur/Matrix.hpp"
 
+#include <math.h>
+
 namespace superpositeur {
 namespace default_operations {
 
@@ -90,7 +92,7 @@ inline Matrix CRk(std::int64_t k) {
     return Matrix{{1, 0, 0, 0},
                    {0, 1, 0, 0},
                    {0, 0, 1, 0},
-                   {0, 0, 0, std::polar(1., std::numbers::pi / (1UL << (k - 1)))}};
+                   {0, 0, 0, std::polar(1., M_PI / (1UL << (k - 1)))}};
 }
 
 inline Matrix TOFFOLI{

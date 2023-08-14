@@ -8,6 +8,8 @@
 #include <charconv>
 #include <unordered_map>
 #include <stack>
+#include <functional>
+#include <algorithm>
 
 #include "superpositeur/MixedState.hpp"
 #include "superpositeur/StrongTypes.hpp"
@@ -121,7 +123,8 @@ private:
 
                 auto qubit = getQubit(args[1]);
                 if (qubit) {
-                    auto floatOperand = get<double>(args[2]);
+                    // auto floatOperand = get<double>(args[2]); // FIXME: from_chars with double not working with emscripten
+                    auto floatOperand = getDouble(args[2]);
                     if (floatOperand) {
                         return std::optional<CircuitInstruction>(CircuitInstruction(fn(*floatOperand), {*qubit}));
                     }
@@ -178,6 +181,15 @@ private:
         return arg;
     }
 
+    static std::optional<double> getDouble(std::string_view s) {
+        try {
+            double value = std::stod(std::string(s));
+            return value;
+        } catch (std::exception const& e) {
+            return std::nullopt;
+        } 
+    }
+
     static std::optional<QubitIndex> getQubit(std::string_view s) {
         if (s[0] != '#') {
             return std::nullopt;
@@ -205,7 +217,7 @@ private:
                 return;
             }
 
-            mask.resize(std::max(mask.size(), op.value + 1), false);
+            mask.resize(std::max(static_cast<std::uint64_t>(mask.size()), op.value + 1), false);
             mask[op.value] = true;
         }
         

@@ -9,7 +9,9 @@
 #include <optional>
 #include <compare>
 
-#include <immintrin.h> // pdep, pext
+#ifdef __BMI2__
+#include <x86gprintrin.h> // pdep, pext
+#endif
 
 namespace superpositeur {
 namespace utils {
@@ -22,6 +24,52 @@ inline void setBit(std::uint64_t &x, std::uint64_t index, bool value) {
     assert(index < 64);
     x = (x & ~(1UL << index)) | (static_cast<std::uint64_t>(value) << index); // FIXME: use pdep?
 }
+
+#ifdef _BMI2INTRIN_H_INCLUDED
+// __attribute__((__target__ ("bmi2")))
+inline std::uint64_t pext_wrapper(std::uint64_t source, std::uint64_t mask) {
+    return _pext_u64(source, mask);
+}
+#else
+// __attribute__((__target__ ("default")))
+inline std::uint64_t pext_wrapper(std::uint64_t source, std::uint64_t mask) {
+    // FIXME: do this better? And test.
+    std::uint64_t result = 0;
+    std::uint64_t setBits = 0;
+    for (std::uint64_t i = 0; i < 64; ++i) {
+        std::uint64_t b = 1 << i;
+        if ((mask & b) != 0) {
+            assert(setBits <= i);
+            result |= ((source & b) >> (i - setBits));
+            ++setBits;
+        }
+    }
+    return result;
+}
+#endif
+
+#ifdef _BMI2INTRIN_H_INCLUDED
+// __attribute__((__target__ ("bmi2")))
+inline std::uint64_t pdep_wrapper(std::uint64_t source, std::uint64_t mask) {
+    return _pdep_u64(source, mask);
+}
+#else
+// __attribute__((__target__ ("default")))
+inline std::uint64_t pdep_wrapper(std::uint64_t source, std::uint64_t mask) {
+    // FIXME: do this better? And test.
+    std::uint64_t result = 0;
+    std::uint64_t setBits = 0;
+    for (std::uint64_t i = 0; i < 64; ++i) {
+        std::uint64_t b = 1 << i;
+        if ((mask & b) != 0) {
+            assert(setBits <= i);
+            result |= ((source & (1 << setBits)) << (i - setBits));
+            ++setBits;
+        }
+    }
+    return result;
+}
+#endif
 
 // std::bitset does not have an operator<. Here, only multiples of 64 bits are allowed.
 
@@ -185,7 +233,8 @@ public:
         result.data[div] = data[0] << rem;
         for (std::uint64_t i = div + 1; i < STORAGE_SIZE; ++i) {
             result.data[i] = data[i - div] << rem;
-            result.data[i] |= _pext_u64(data[i - div - 1], topMask);
+            result.data[i] |= (data[i - div - 1] & topMask) >> (BITS_PER_UNIT - rem);
+            // result.data[i] |= _pext_u64(data[i - div - 1], topMask); // This is also possible but uses pext intrinsics.
         }
 
         return result;
@@ -275,7 +324,7 @@ public:
         std::uint64_t result = 0;
         std::uint64_t bitsDone = 0;
         for (std::uint64_t i = 0; i < std::min(STORAGE_SIZE, BitSet<MaskNumberOfBits>::STORAGE_SIZE); ++i) {
-            std::uint64_t partial = _pext_u64(data[i], mask.data[i]);
+            std::uint64_t partial = pext_wrapper(data[i], mask.data[i]);
             result |= (partial << bitsDone);
             bitsDone += std::popcount(mask.data[i]);
         }
@@ -289,7 +338,7 @@ public:
         BitSet result;
         std::uint64_t bitsDone = 0;
         for (std::uint64_t i = 0; i < std::min(STORAGE_SIZE, BitSet<MaskNumberOfBits>::STORAGE_SIZE); ++i) {
-            std::uint64_t partial = _pdep_u64(source >> bitsDone, mask.data[i]);
+            std::uint64_t partial = pdep_wrapper(source >> bitsDone, mask.data[i]);
             result.data[i] = (data[i] & (~mask.data[i])) | partial;
             bitsDone += std::popcount(mask.data[i]);
         }
