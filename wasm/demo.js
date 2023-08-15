@@ -28,11 +28,11 @@ function input(inputString) {
 
     output = document.getElementById('output')
     
-    output.innerHTML += "<br/><b>&gt;&gt;&gt; ";
-    output.innerHTML += escapeHtml(inputString);
-    output.innerHTML += "</b>";
-    output.innerHTML += "<br/>";
-    output.innerHTML += newContent;
+    toAdd = "<br/><b>&gt;&gt;&gt; ";
+    toAdd += escapeHtml(inputString);
+    toAdd += "</b>";
+    toAdd += "<br/>";
+    output.innerHTML += toAdd;
     output.scrollTop = output.scrollHeight
 }
   
