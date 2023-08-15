@@ -3,7 +3,6 @@ session = undefined;
 var Module = {
     onRuntimeInitialized: function() {
         session = new Module["SuperpositeurCLISession"]();
-        document.getElementById('output').innerHTML = session.input("help");
     }
 };
 
@@ -12,7 +11,7 @@ function input(inputString) {
         return;
     }
 
-    newContent = session.input("help");
+    newContent = session.input(inputString);
 
     newContent = newContent.replace(/(?:\r\n|\r|\n)/g, '<br>');
 
