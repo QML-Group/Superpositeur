@@ -26,7 +26,7 @@ class SuperpositeurCLISession {
 public:
     SuperpositeurCLISession() = default;
 
-    std::string operator()(std::string_view input) {
+    std::string operator()(std::string const& input) {
         auto words = getWords(input);
 
         if (words.size() <= 0) {
