@@ -14,6 +14,8 @@ function input(inputString) {
 
     newContent = session.input("help");
 
+    newContent = newContent.replace(/(?:\r\n|\r|\n)/g, '<br>');
+
     document.getElementById('output').innerHTML += "<br> &gt;&gt;&gt; ";
     document.getElementById('output').innerHTML += inputString;
     document.getElementById('output').innerHTML += "<br>";
