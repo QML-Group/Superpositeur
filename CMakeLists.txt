@@ -130,6 +130,7 @@ option(
 
 if(SUPERPOSITEUR_WASM)
     add_definitions(-DSUPERPOSITEUR_WASM)
+    
     set(CMAKE_STATIC_LIBRARY_SUFFIX ".wasm")
     set(CMAKE_SHARED_LIBRARY_SUFFIX ".wasm")
     set(CMAKE_EXECUTABLE_SUFFIX ".wasm")

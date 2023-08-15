@@ -1,6 +1,6 @@
 var Module = {
-    var session = new Module.SuperpositeurCLISession();
     onRuntimeInitialized: function() {
+        session = new Module["SuperpositeurCLISession"]();
         document.getElementById('log').innerHTML = session.input("help");
     }
 };
