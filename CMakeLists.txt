@@ -34,6 +34,7 @@ add_library(superpositeur
     "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/GivensRotation.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/Matrix.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/MatrixSparseVectorMultiplication.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/cli/SuperpositeurCLISession.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/MixedState.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/QuantumOperation.cpp"
 )
@@ -128,7 +129,10 @@ option(
 )
 
 if(SUPERPOSITEUR_WASM)
-    set(CMAKE_EXECUTABLE_SUFFIX ".html")
+    add_definitions(-DSUPERPOSITEUR_WASM)
+    set(CMAKE_STATIC_LIBRARY_SUFFIX ".wasm")
+    set(CMAKE_SHARED_LIBRARY_SUFFIX ".wasm")
+    set(CMAKE_EXECUTABLE_SUFFIX ".wasm")
 endif()
 
 #=============================================================================#

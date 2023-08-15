@@ -1,6 +1,8 @@
 # Superpositeur
 Superpositeur is a project to explore efficient algorithms behind density matrix simulation of quantum circuits.
 
+## [Try me online](https://qml-group.github.io/Superpositeur/wasm/demo.html) (work in progress)
+
 ## Context
 Developed at the TU in Delft, The Netherlands, as a collaboration between the [Quantum Machine Learning group](https://www.tudelft.nl/en/eemcs/the-faculty/departments/quantum-computer-engineering/sections/quantum-circuits-architectures-and-technology/groups/quantum-machine-learning) of Sebastian Feld and [QuTech](https://qutech.nl/).
 
