@@ -26,10 +26,13 @@ function input(inputString) {
     newContent = escapeHtml(newContent);
     newContent = newContent.replace(/(?:\r\n|\r|\n)/g, '<br/>');
 
-    document.getElementById('output').innerHTML += "<br/><b>&gt;&gt;&gt; ";
-    document.getElementById('output').innerHTML += escapeHtml(inputString);
-    document.getElementById('output').innerHTML += "</b>";
-    document.getElementById('output').innerHTML += "<br/>";
-    document.getElementById('output').innerHTML += newContent;
+    output = document.getElementById('output')
+    
+    output.innerHTML += "<br/><b>&gt;&gt;&gt; ";
+    output.innerHTML += escapeHtml(inputString);
+    output.innerHTML += "</b>";
+    output.innerHTML += "<br/>";
+    output.innerHTML += newContent;
+    output.scrollTop = output.scrollHeight
 }
   
