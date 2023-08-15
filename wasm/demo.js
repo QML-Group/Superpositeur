@@ -23,12 +23,13 @@ function input(inputString) {
 
     newContent = session.input(inputString);
 
-    newContent = newContent.replace(/(?:\r\n|\r|\n)/g, '<br>');
     newContent = escapeHtml(newContent);
+    newContent = newContent.replace(/(?:\r\n|\r|\n)/g, '<br/>');
 
-    document.getElementById('output').innerHTML += "<br><b>&gt;&gt;&gt; ";
+    document.getElementById('output').innerHTML += "<br/><b>&gt;&gt;&gt; ";
     document.getElementById('output').innerHTML += escapeHtml(inputString);
     document.getElementById('output').innerHTML += "</b>";
+    document.getElementById('output').innerHTML += "<br/>";
     document.getElementById('output').innerHTML += newContent;
 }
   
