@@ -121,7 +121,7 @@ private:
         auto singleQubitKrausFromFloat = [&result](std::string name, KrausFromFloat fn) {
             MatrixGen doThisGate = [name, fn](Words const& args) -> std::expected<CircuitInstruction, std::string> {
                 if (args.size() != 3) {
-                    return std::unexpected(std::string("Syntax: '") + name + " #i 0.12345'");
+                    return std::unexpected(std::string("Syntax: '") + name + " #0 0.12345'");
                 }
 
                 auto qubit = getQubit(args[1]);
@@ -133,7 +133,7 @@ private:
                     }
                 }
                 
-                return std::unexpected(std::string("Syntax: '") + name + " #i 0.12345'");
+                return std::unexpected(std::string("Syntax: '") + name + " #0 0.12345'");
             };
 
             result[name] = doThisGate;
