@@ -10,6 +10,7 @@
 #include <stack>
 #include <functional>
 #include <algorithm>
+#include <expected>
 
 #include "superpositeur/MixedState.hpp"
 #include "superpositeur/StrongTypes.hpp"
@@ -42,7 +43,7 @@ public:
                 auto qubitIndex = getQubit(words[i]);
                 
                 if (!qubitIndex) {
-                    return "Error: should be 'print #0 #1 #2'\n";
+                    return "Error: should be 'print #0 #1 #2'";
                 }
 
                 operands.push_back({*qubitIndex});
@@ -66,7 +67,7 @@ public:
             auto operation = it->second(words);
 
             if (!operation) {
-                return "Could not create operation";
+                return operation.error();
             }
             state(*operation);
             return "";
@@ -75,7 +76,7 @@ public:
 
 private:
     using Words = std::vector<std::string_view>;
-    using MatrixGen = std::function<std::optional<CircuitInstruction>(std::vector<std::string_view> const&)>;
+    using MatrixGen = std::function<std::expected<CircuitInstruction, std::string>(std::vector<std::string_view> const&)>;
     using OperationsMap = std::unordered_map<std::string, MatrixGen>;
 
     static OperationsMap createOperationsMap() {
@@ -84,19 +85,17 @@ private:
         OperationsMap result;
         
         auto singleQubit = [&result](std::string name, Matrix const& m) {
-            MatrixGen doThisGate = [name, &m](Words const& args) {
+            MatrixGen doThisGate = [name, &m](Words const& args) -> std::expected<CircuitInstruction, std::string> {
                 if (args.size() != 2) {
-                    std::cout << "Syntax: '" << name << " #0'" << std::endl;
-                    return std::optional<CircuitInstruction>();
+                    return std::unexpected(std::string("Syntax: '") + name + " #0'");
                 }
 
                 auto qubit = getQubit(args[1]);
                 if (!qubit) {
-                    std::cout << "Syntax: '" << name << " #0'" << std::endl;
-                    return std::optional<CircuitInstruction>();
+                    return std::unexpected(std::string("Syntax: '") + name + " #0'");
                 }
 
-                return std::optional<CircuitInstruction>(CircuitInstruction({m}, {*qubit}));
+                return CircuitInstruction({m}, {*qubit});
             };
 
             result[std::move(name)] = doThisGate;
@@ -120,10 +119,9 @@ private:
 
         using KrausFromFloat = KrausOperators(*)(double);
         auto singleQubitKrausFromFloat = [&result](std::string name, KrausFromFloat fn) {
-            MatrixGen doThisGate = [name, fn](Words const& args) {
+            MatrixGen doThisGate = [name, fn](Words const& args) -> std::expected<CircuitInstruction, std::string> {
                 if (args.size() != 3) {
-                    std::cout << "Syntax: '" << name << " #i 0.12345'" << std::endl;
-                    return std::optional<CircuitInstruction>();
+                    return std::unexpected(std::string("Syntax: '") + name + " #i 0.12345'");
                 }
 
                 auto qubit = getQubit(args[1]);
@@ -131,12 +129,11 @@ private:
                     // auto floatOperand = get<double>(args[2]); // FIXME: from_chars with double not working with emscripten
                     auto floatOperand = getDouble(args[2]);
                     if (floatOperand) {
-                        return std::optional<CircuitInstruction>(CircuitInstruction(fn(*floatOperand), {*qubit}));
+                        return CircuitInstruction(fn(*floatOperand), {*qubit});
                     }
                 }
                 
-                std::cout << "Syntax: '" << name << " #i 0.12345'" << std::endl;
-                return std::optional<CircuitInstruction>();
+                return std::unexpected(std::string("Syntax: '") + name + " #i 0.12345'");
             };
 
             result[name] = doThisGate;
@@ -226,12 +223,12 @@ private:
         
         std::stringstream s;
 
-        s << std::endl << "Reduced density matrix for qubits ";
+        s << "Reduced density matrix for qubits ";
         for (auto op: operands) {
             s << op.value << " ";
         }
 
-        s << state.getReducedDensityMatrix(mask) << std::endl;
+        s << state.getReducedDensityMatrix(mask);
 
         return s.str();
     }
@@ -248,13 +245,11 @@ private:
 
     std::string help() const {
         std::stringstream s;
-        s << "~ Help menu ~" << std::endl;
         s << "help                    show this help" << std::endl;
         s << "p[rint] #1 #2 #3        print state for qubits #1, #2 and #3" << std::endl;
         s << "reset                   reset the quantum state" << std::endl;
         s << "h #0                    apply Hadamard quantum gate on qubit #0" << std::endl;
         s << "l[ist]                  list available quantum gates" << std::endl;
-        s << "ctrl-C or ctrl-D        exit this awesome shell" << std::endl;
         return s.str();
     };
 

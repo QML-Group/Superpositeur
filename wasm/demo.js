@@ -33,6 +33,7 @@ function input(inputString) {
     toAdd += "</b>";
     toAdd += "<br/>";
     output.innerHTML += toAdd;
+    output.innerHTML += newContent;
     output.scrollTop = output.scrollHeight
 }
   
