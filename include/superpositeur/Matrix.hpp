@@ -118,7 +118,7 @@ public:
             os << "\n";
         }
 
-        os << std::string(15 * getNumberOfCols(), '-') << std::endl;
+        os << std::string(15 * getNumberOfCols(), '-');
     }
 
     void operator*=(Matrix const &other) {

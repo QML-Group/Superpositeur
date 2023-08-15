@@ -236,9 +236,15 @@ private:
     std::string list() const {
         std::stringstream s;
         s << "Available quantum operations (call gate without arguments for further help):" << std::endl;
+        bool first = true;
         for (auto const& kv: operationsMap) { // FIXME: multiple columns?
+            if (!first) {
+                s << ", ";
+            } else {
+                first = false;
+            }
             auto const& gateName = kv.first;
-            s << gateName << std::endl;
+            s << gateName;
         }
         return s.str();
     }
@@ -249,7 +255,7 @@ private:
         s << "p[rint] #1 #2 #3        print state for qubits #1, #2 and #3" << std::endl;
         s << "reset                   reset the quantum state" << std::endl;
         s << "h #0                    apply Hadamard quantum gate on qubit #0" << std::endl;
-        s << "l[ist]                  list available quantum gates" << std::endl;
+        s << "l[ist]                  list available quantum gates";
         return s.str();
     };
 

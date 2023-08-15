@@ -31,7 +31,10 @@ function input(inputString) {
     toAdd = "<br/><b>&gt;&gt;&gt; ";
     toAdd += escapeHtml(inputString);
     toAdd += "</b>";
-    toAdd += "<br/>";
+    if (newContent != "") {
+        toAdd += "<br/>";
+    }
+    
     output.innerHTML += toAdd;
     output.innerHTML += newContent;
     output.scrollTop = output.scrollHeight
