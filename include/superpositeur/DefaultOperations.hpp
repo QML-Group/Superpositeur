@@ -88,11 +88,12 @@ inline Matrix CR(double theta) {
 }
 
 inline Matrix CRk(std::int64_t k) {
-    assert(k >= 1);
+    double f = std::pow(2., -k);
+
     return Matrix{{1, 0, 0, 0},
                    {0, 1, 0, 0},
                    {0, 0, 1, 0},
-                   {0, 0, 0, std::polar(1., M_PI / (1UL << (k - 1)))}};
+                   {0, 0, 0, std::polar(1., 2 * M_PI * f)}};
 }
 
 inline Matrix TOFFOLI{
@@ -154,6 +155,8 @@ inline std::initializer_list<Matrix> PREP_Y{
                  {1i / 2., -1 / 2.}}};
 
 inline KrausOperators DEPOLARIZING_CHANNEL(double lambda) {
+    lambda = std::min(1., std::max(0., lambda));
+
     auto k0 = std::sqrt(1. - 3 * lambda / 4) * IDENTITY;
     auto k1 = std::sqrt(lambda / 4) * X;
     auto k2 = std::sqrt(lambda / 4) * Y;
@@ -163,19 +166,23 @@ inline KrausOperators DEPOLARIZING_CHANNEL(double lambda) {
 }
 
 inline KrausOperators AMPLITUDE_DAMPING(double gamma) {
+    gamma = std::min(1., std::max(0., gamma));
+
     auto e0 = Matrix{{1, 0},
-                           {0, std::sqrt(1 - gamma)}};
+                     {0, std::sqrt(1 - gamma)}};
     auto e1 = Matrix{{0, std::sqrt(gamma)},
-                           {0, 0}};
+                     {0, 0}};
 
     return {e0, e1};
 }
 
 inline KrausOperators PHASE_DAMPING(double lambda) {
+    lambda = std::min(1., std::max(0., lambda));
+
     auto e0 = Matrix{{1, 0},
-                           {0, std::sqrt(1 - lambda)}};
+                     {0, std::sqrt(1 - lambda)}};
     auto e1 = Matrix{{0, 0},
-                           {0, std::sqrt(lambda)}};
+                     {0, std::sqrt(lambda)}};
 
     return {e0, e1};
 }
