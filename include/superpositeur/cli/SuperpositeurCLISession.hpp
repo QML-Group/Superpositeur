@@ -10,7 +10,7 @@
 #include <stack>
 #include <functional>
 #include <algorithm>
-#include <expected>
+#include <variant>
 
 #include "superpositeur/MixedState.hpp"
 #include "superpositeur/StrongTypes.hpp"
@@ -66,29 +66,31 @@ public:
             
             auto operation = it->second(words);
 
-            if (!operation) {
-                return operation.error();
+            if (std::holds_alternative<std::string>(operation)) {
+                return std::get<std::string>(operation);
             }
-            state(*operation);
+            state(std::get<CircuitInstruction>(operation));
             return "";
         }
     }
 
 private:
     using Words = std::vector<std::string_view>;
-    using MatrixGen = std::function<std::expected<CircuitInstruction, std::string>(std::vector<std::string_view> const&)>;
+    using MatrixGen = std::function<std::variant<CircuitInstruction, std::string>(std::vector<std::string_view> const&)>;
     using OperationsMap = std::unordered_map<std::string, MatrixGen>;
 
     template <typename T>
     static std::string getSyntaxString() {
-        throw std::runtime_error("Unknown type");
+        if constexpr (std::is_same_v<std::int64_t, T>) {
+            return "42 ";
+        }
+
+        if constexpr (std::is_same_v<double, T>) {
+            return "0.12345 ";
+        }
+        
+        throw std::runtime_error("No syntax for this type");
     }
-
-    template <>
-    std::string getSyntaxString<std::int64_t>() { return "3"; }
-
-    template <>
-    std::string getSyntaxString<double>() { return "0.12345"; }
 
     template <typename Callable>
     static void addGate(OperationsMap &map, std::string &&name, std::uint64_t numQubits, Callable callable) {
@@ -100,13 +102,17 @@ private:
         static_assert(std::is_same_v<T, Matrix> || std::is_same_v<T, KrausOperators>);
 
         std::stringstream syntax;
-        syntax << "Syntax: " << name;
+        syntax << "Syntax: " << name << " ";
         for (std::uint64_t i = 0; i < numQubits; ++i) {
-            syntax << " #" << i;
+            syntax << "#" << i << " ";
         }
         (void) (syntax << ... << getSyntaxString<Args>());
         
-        MatrixGen doThisGate = [numQubits, syntax = syntax.str(), f](Words const& args) -> std::expected<CircuitInstruction, std::string> {
+        MatrixGen doThisGate = [numQubits, syntax = syntax.str(), f](Words const& args) -> std::variant<CircuitInstruction, std::string> {
+            if (args.size() != numQubits + sizeof...(Args) + 1) {
+                return syntax;
+            }
+
             try {
                 std::uint64_t i = 0;
                 CircuitInstruction::QubitIndexVector qubitOperands;
@@ -123,14 +129,14 @@ private:
                  }();
 
                 if constexpr (std::is_same_v<T, Matrix>) {
-                    assert(numQubits == std::countr_zero(result.getNumberOfRows()));
+                    assert(numQubits == static_cast<std::uint64_t>(std::countr_zero(result.getNumberOfRows())));
                     return CircuitInstruction(KrausOperators{result}, qubitOperands);
                 } else {
-                    assert(numQubits == std::countr_zero(result[0].getNumberOfRows()));
+                    assert(numQubits == static_cast<std::uint64_t>(std::countr_zero(result[0].getNumberOfRows())));
                     return CircuitInstruction(result, qubitOperands);
                 }
             } catch (std::bad_optional_access const&) {
-                return std::unexpected(syntax);
+                return syntax;
             }
         };
 
@@ -138,10 +144,10 @@ private:
     }
     
     static void addGate(OperationsMap &map, std::string &&name, KrausOperators const& ks) {
-        assert(ks.size() >= 0);
+        assert(ks.size() > 0);
         assert(std::has_single_bit(ks[0].getNumberOfRows()));
 
-        addGate(map, std::move(name), std::countr_zero(ks[0].getNumberOfRows()), [&ks]() { return ks; });
+        addGate(map, std::move(name), std::countr_zero(ks[0].getNumberOfRows()), [ks]() { return ks; });
     }
 
     static void addGate(OperationsMap &map, std::string &&name, Matrix m) {
@@ -207,22 +213,21 @@ private:
 
     template <typename T>
     static std::optional<T> get(std::string_view s) {
-        T arg;
-        auto parseResult = std::from_chars(s.data(), s.data() + s.size(), arg);
-        if (parseResult.ptr != s.data() + s.size() || parseResult.ec == std::errc::invalid_argument || parseResult.ec == std::errc::result_out_of_range) {
-            return std::nullopt;
+        if constexpr (std::is_same_v<T, double>) { // std::from_chars doesn't work with double and emscripten.
+            try {
+                double value = std::stod(std::string(s));
+                return value;
+            } catch (std::exception const& e) {
+                return std::nullopt;
+            }
+        } else {
+            T arg;
+            auto parseResult = std::from_chars(s.data(), s.data() + s.size(), arg);
+            if (parseResult.ptr != s.data() + s.size() || parseResult.ec == std::errc::invalid_argument || parseResult.ec == std::errc::result_out_of_range) {
+                return std::nullopt;
+            }
+            return arg;
         }
-        return arg;
-    }
-
-    template <>
-    std::optional<double> get<double>(std::string_view s) { // std::from_chars doesn't work with double and emscripten.
-        try {
-            double value = std::stod(std::string(s));
-            return value;
-        } catch (std::exception const& e) {
-            return std::nullopt;
-        } 
     }
 
     static std::optional<QubitIndex> getQubit(std::string_view s) {
