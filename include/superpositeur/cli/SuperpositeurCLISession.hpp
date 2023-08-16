@@ -237,7 +237,7 @@ private:
         std::stringstream s;
         s << "Available quantum operations (call gate without arguments for further help):" << std::endl;
         bool first = true;
-        for (auto const& kv: operationsMap) { // FIXME: multiple columns?
+        for (auto const& kv: operationsMap) {
             if (!first) {
                 s << ", ";
             } else {
