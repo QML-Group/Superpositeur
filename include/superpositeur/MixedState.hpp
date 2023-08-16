@@ -253,7 +253,7 @@ public:
             m.add(i, j, v);
 
             if (i != j) {
-                m.add(j, i, v);
+                m.add(j, i, std::conj(v));
             }
         }
         return m;
