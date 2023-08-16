@@ -28,7 +28,12 @@ function input(inputString) {
 
     output = document.getElementById('output')
     
-    toAdd = "<br/><b>&gt;&gt;&gt; ";
+    toAdd = ""
+    if (output.innerHTML != "") {
+        toAdd += "<br/>";
+    }
+
+    toAdd += "<b>&gt;&gt;&gt; ";
     toAdd += escapeHtml(inputString);
     toAdd += "</b>";
     if (newContent != "") {
