@@ -79,75 +79,107 @@ private:
     using MatrixGen = std::function<std::expected<CircuitInstruction, std::string>(std::vector<std::string_view> const&)>;
     using OperationsMap = std::unordered_map<std::string, MatrixGen>;
 
+    template <typename T>
+    static std::string getSyntaxString() {
+        throw std::runtime_error("Unknown type");
+    }
+
+    template <>
+    std::string getSyntaxString<std::int64_t>() { return "3"; }
+
+    template <>
+    std::string getSyntaxString<double>() { return "0.12345"; }
+
+    template <typename Callable>
+    static void addGate(OperationsMap &map, std::string &&name, std::uint64_t numQubits, Callable callable) {
+        addGate(map, std::move(name), numQubits, std::function{callable});
+    }
+
+    template <typename T, typename ...Args>
+    static void addGate(OperationsMap &map, std::string &&name, std::uint64_t numQubits, std::function<T(Args...)> f) {
+        static_assert(std::is_same_v<T, Matrix> || std::is_same_v<T, KrausOperators>);
+
+        std::stringstream syntax;
+        syntax << "Syntax: " << name;
+        for (std::uint64_t i = 0; i < numQubits; ++i) {
+            syntax << " #" << i;
+        }
+        (void) (syntax << ... << getSyntaxString<Args>());
+        
+        MatrixGen doThisGate = [numQubits, syntax = syntax.str(), f](Words const& args) -> std::expected<CircuitInstruction, std::string> {
+            try {
+                std::uint64_t i = 0;
+                CircuitInstruction::QubitIndexVector qubitOperands;
+                for (std::uint64_t i = 1; i <= numQubits; ++i) {
+                    qubitOperands.push_back(QubitIndex{getQubit(args[i]).value()});
+                }
+
+                auto result = [&] {
+                    if constexpr (sizeof...(Args) > 0) {
+                        return f((get<Args>(args[args.size() - (i++) - 1]).value(), ...));
+                    } else {
+                        return f();
+                    }
+                 }();
+
+                if constexpr (std::is_same_v<T, Matrix>) {
+                    assert(numQubits == std::countr_zero(result.getNumberOfRows()));
+                    return CircuitInstruction(KrausOperators{result}, qubitOperands);
+                } else {
+                    assert(numQubits == std::countr_zero(result[0].getNumberOfRows()));
+                    return CircuitInstruction(result, qubitOperands);
+                }
+            } catch (std::bad_optional_access const&) {
+                return std::unexpected(syntax);
+            }
+        };
+
+        map[name] = doThisGate;
+    }
+    
+    static void addGate(OperationsMap &map, std::string &&name, KrausOperators const& ks) {
+        assert(ks.size() >= 0);
+        assert(std::has_single_bit(ks[0].getNumberOfRows()));
+
+        addGate(map, std::move(name), std::countr_zero(ks[0].getNumberOfRows()), [&ks]() { return ks; });
+    }
+
+    static void addGate(OperationsMap &map, std::string &&name, Matrix m) {
+        addGate(map, std::move(name), KrausOperators{m});
+    }
+
     static OperationsMap createOperationsMap() {
         namespace ops = default_operations;
 
         OperationsMap result;
-        
-        auto singleQubit = [&result](std::string name, Matrix const& m) {
-            MatrixGen doThisGate = [name, &m](Words const& args) -> std::expected<CircuitInstruction, std::string> {
-                if (args.size() != 2) {
-                    return std::unexpected(std::string("Syntax: '") + name + " #0'");
-                }
 
-                auto qubit = getQubit(args[1]);
-                if (!qubit) {
-                    return std::unexpected(std::string("Syntax: '") + name + " #0'");
-                }
-
-                return CircuitInstruction({m}, {*qubit});
-            };
-
-            result[std::move(name)] = doThisGate;
-        };
-        
-        singleQubit("id", ops::IDENTITY);
-        singleQubit("x", ops::X);
-        singleQubit("x90", ops::X90);
-        singleQubit("mx90", ops::MX90);
-        singleQubit("y", ops::Y);
-        singleQubit("y90", ops::Y90);
-        singleQubit("my90", ops::MY90);
-        singleQubit("z", ops::Z);
-        singleQubit("z90", ops::Z90);
-        singleQubit("mz90", ops::MZ90);
-        singleQubit("s", ops::S);
-        singleQubit("sdag", ops::SDAG);
-        singleQubit("t", ops::T);
-        singleQubit("tdag", ops::TDAG);
-        singleQubit("h", ops::H);
-
-        using KrausFromFloat = KrausOperators(*)(double);
-        auto singleQubitKrausFromFloat = [&result](std::string name, KrausFromFloat fn) {
-            MatrixGen doThisGate = [name, fn](Words const& args) -> std::expected<CircuitInstruction, std::string> {
-                if (args.size() != 3) {
-                    return std::unexpected(std::string("Syntax: '") + name + " #0 0.12345'");
-                }
-
-                auto qubit = getQubit(args[1]);
-                if (qubit) {
-                    // auto floatOperand = get<double>(args[2]); // FIXME: from_chars with double not working with emscripten
-                    auto floatOperand = getDouble(args[2]);
-                    if (floatOperand) {
-                        return CircuitInstruction(fn(*floatOperand), {*qubit});
-                    }
-                }
-                
-                return std::unexpected(std::string("Syntax: '") + name + " #0 0.12345'");
-            };
-
-            result[name] = doThisGate;
-        };
-        
-        singleQubitKrausFromFloat("depolarizing_channel", ops::DEPOLARIZING_CHANNEL);
-        singleQubitKrausFromFloat("phase_damping", ops::PHASE_DAMPING);
-        singleQubitKrausFromFloat("amplitude_damping", ops::AMPLITUDE_DAMPING);
-
-        singleQubitKrausFromFloat("rx", [](double d) { return KrausOperators{ ops::RX(d) }; });
-        singleQubitKrausFromFloat("ry", [](double d) { return KrausOperators{ ops::RY(d) }; });
-        singleQubitKrausFromFloat("rz", [](double d) { return KrausOperators{ ops::RZ(d) }; });
-
-        // TODO: add 2-qubit operations.
+        addGate(result, "x", ops::X);
+        addGate(result, "id", ops::IDENTITY);
+        addGate(result, "x", ops::X);
+        addGate(result, "x90", ops::X90);
+        addGate(result, "mx90", ops::MX90);
+        addGate(result, "y", ops::Y);
+        addGate(result, "y90", ops::Y90);
+        addGate(result, "my90", ops::MY90);
+        addGate(result, "z", ops::Z);
+        addGate(result, "z90", ops::Z90);
+        addGate(result, "mz90", ops::MZ90);
+        addGate(result, "s", ops::S);
+        addGate(result, "sdag", ops::SDAG);
+        addGate(result, "t", ops::T);
+        addGate(result, "tdag", ops::TDAG);
+        addGate(result, "h", ops::H);
+        addGate(result, "measure", ops::MEAS_Z);
+        addGate(result, "depolarizing_channel", 1, &ops::DEPOLARIZING_CHANNEL);
+        addGate(result, "phase_damping", 1, &ops::PHASE_DAMPING);
+        addGate(result, "amplitude_damping", 1, &ops::AMPLITUDE_DAMPING);
+        addGate(result, "rx", 1, ops::RX);
+        addGate(result, "ry", 1, ops::RY);
+        addGate(result, "rz", 1, ops::RZ);
+        addGate(result, "cnot", ops::CNOT);
+        addGate(result, "swap", ops::SWAP);
+        addGate(result, "cz", ops::CZ);
+        addGate(result, "crk", 2, ops::CRk);
 
         return result;
     }
@@ -183,7 +215,8 @@ private:
         return arg;
     }
 
-    static std::optional<double> getDouble(std::string_view s) {
+    template <>
+    std::optional<double> get<double>(std::string_view s) { // std::from_chars doesn't work with double and emscripten.
         try {
             double value = std::stod(std::string(s));
             return value;
