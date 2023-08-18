@@ -3,14 +3,12 @@
 #include "superpositeur/Common.hpp"
 #include "superpositeur/Matrix.hpp"
 
-#include <math.h>
-
 namespace superpositeur {
 namespace default_operations {
 
 using namespace std::complex_literals;
 
-inline long double PI = 3.141592653589793238462643383279502884L;
+inline double PI = 3.141592653589793238462643383279502884L;
 inline double SQRT_2 = 1.414213562373095048801688724209698078L;
 
 inline Matrix IDENTITY{{1, 0},
@@ -93,7 +91,7 @@ inline Matrix CRk(std::int64_t k) {
     return Matrix{{1, 0, 0, 0},
                    {0, 1, 0, 0},
                    {0, 0, 1, 0},
-                   {0, 0, 0, std::polar(1., 2 * M_PI * f)}};
+                   {0, 0, 0, std::polar(1., 2 * PI * f)}};
 }
 
 inline Matrix TOFFOLI{

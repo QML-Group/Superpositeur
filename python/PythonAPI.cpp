@@ -186,7 +186,7 @@ static PyObject *PyQuantumState_densityMatrix(PyObject *self, PyObject *args) {
 
     std::vector<bool> mask;
     for (auto op: *operands) {
-        mask.resize(std::max(mask.size(), op.value + 1), false);
+        mask.resize(std::max(static_cast<std::uint64_t>(mask.size()), op.value + 1), false);
         mask[op.value] = true;
     }
 

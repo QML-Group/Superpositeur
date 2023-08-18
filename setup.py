@@ -3,9 +3,10 @@ import glob
 import numpy
 
 superpositeur = Extension('superpositeur',
+                    language='c++',
                     include_dirs = ['include/', numpy.get_include()],
                     sources = glob.glob("src/**/*.cpp") + ["python/PythonAPI.cpp"],
-                    extra_compile_args=['-std=c++23'],
+                    extra_compile_args=['-std=c++23', '/std:c++latest'],
                 )
 
 setup(name = 'superpositeur',
