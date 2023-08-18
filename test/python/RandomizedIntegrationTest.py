@@ -2,6 +2,7 @@ from qiskit.circuit import QuantumCircuit
 from qiskit.quantum_info import random_quantum_channel, DensityMatrix, partial_trace, Kraus
 from qiskit.extensions import UnitaryGate
 import random
+import numpy as np
 import superpositeur
 
 def generate_random_circuit(qubits = 3, gates = 5):
@@ -25,21 +26,23 @@ def execute_with_superpositeur(circuit: QuantumCircuit):
     return state
 
 def test_random():
-    numQubits = 2
+    numQubits = 3
     numGates = 5
     circuit = generate_random_circuit(qubits = numQubits, gates = numGates)
 
     # print(circuit[0])
 
-    keepIndices = [0]
-    reductionIndices = [1]
+    keepIndices = [0, 1, 2]
+    reductionIndices = []
 
     qiskitDensityMatrix = DensityMatrix(circuit)
     qiskitReducedDensityMatrix = partial_trace(state=qiskitDensityMatrix, qargs=reductionIndices)
     print("Qiskit output:")
+    np.set_printoptions(suppress=True)
     print(qiskitReducedDensityMatrix.data)
 
     print("\nSuperpositeur output:")
+    np.set_printoptions(suppress=True)
     print(execute_with_superpositeur(circuit).densityMatrix(*keepIndices))
 
 test_random()
