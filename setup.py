@@ -9,7 +9,7 @@ superpositeur = Extension('superpositeur',
                     language='c++',
                     include_dirs = ['include/', numpy.get_include()],
                     sources = glob.glob("src/**/*.cpp") + ["python/PythonAPI.cpp"],
-                    extra_compile_args=[cppStandard],
+                    extra_compile_args=[cppStandard, "-march=native"],
                 )
 
 setup(name = 'superpositeur',

@@ -207,13 +207,16 @@ TEST_F(BitSetTest, CountlZero) {
 TEST_F(BitSetTest, NextWithBits) {
     // FIXME: also test the extra bits in "bits" of "mask" that are not taken into account.
     BitSet<64> victim("001");
-    EXPECT_EQ(victim.nextWithBits({"1111111111111111111111111111111111111111111111111111111111111110"}, {"000"}), std::nullopt);
+    EXPECT_EQ(victim.nextWithBits({"1111111111111111111111111111111111111111111111111111111111111110"}, {"000"}), BitSet<64>());
+    EXPECT_TRUE(victim.nextWithBits({"1111111111111111111111111111111111111111111111111111111111111110"}, {"000"}).empty());
     EXPECT_EQ(victim.nextWithBits({"001"}, {"000"}), std::optional<BitSet<64>>("010"));
     EXPECT_EQ(victim.nextWithBits({"010"}, {"010"}), std::optional<BitSet<64>>("010"));
     EXPECT_EQ(victim.nextWithBits({"010"}, {"000"}), std::optional<BitSet<64>>("100"));
     EXPECT_EQ(victim.nextWithBits({"110"}, {"110"}), std::optional<BitSet<64>>("110"));
-    EXPECT_EQ(victim.nextWithBits({"1111111111111111111111111111111111111111111111111111111111111111"}, {"000"}), std::nullopt);
-    EXPECT_EQ(victim.nextWithBits({"1111111111111111111111111111111111111111111111111111111111111111"}, {"001"}), std::nullopt);
+    EXPECT_EQ(victim.nextWithBits({"1111111111111111111111111111111111111111111111111111111111111111"}, {"000"}), BitSet<64>());
+    EXPECT_EQ(victim.nextWithBits({"1111111111111111111111111111111111111111111111111111111111111111"}, {"000"}), BitSet<64>());
+    EXPECT_EQ(victim.nextWithBits({"1111111111111111111111111111111111111111111111111111111111111111"}, {"001"}), BitSet<64>());
+    EXPECT_EQ(victim.nextWithBits({"1111111111111111111111111111111111111111111111111111111111111111"}, {"001"}), BitSet<64>());
     EXPECT_EQ(victim.nextWithBits({"111"}, {"010"}), std::optional<BitSet<64>>("010"));
     EXPECT_EQ(victim.nextWithBits({"111"}, {"111"}), std::optional<BitSet<64>>("111"));
 

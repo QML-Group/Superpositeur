@@ -286,16 +286,31 @@ public:
         return NumberOfBits - countlZero();
     }
 
-    std::optional<BitSet> nextWithBits(BitSet mask, BitSet bits) const { // FIXME: remove optional.
+    bool empty() const {
+        return std::all_of(data.begin(), data.end(), [](auto x) { return x == 0; }); // FIXME: memcmp or sth?
+    }
+
+    template <std::size_t NewNumberOfBits>
+    BitSet<NewNumberOfBits> cast() {
+        BitSet<NewNumberOfBits> result;
+        for (std::uint64_t i = 0; i < std::min(result.STORAGE_SIZE, STORAGE_SIZE); ++i) {
+            result.data[i] = data[i];
+        }
+        return result;
+    }
+
+    BitSet nextWithBits(BitSet mask, BitSet bits) const { // Returns 0 if doesn't fit.
+        assert((bits & (~mask)).empty()); // FIXME: use this below.
+
         if (*this >= (((~BitSet(0)) & (~mask)) | (mask & bits))) {
-            return std::nullopt;
+            return BitSet{};
         }
 
         BitSet x = *this;
 
         auto fixedBitsDifference = (x ^ bits) & mask;
 
-        if (fixedBitsDifference == BitSet())
+        if (fixedBitsDifference.empty())
         {
             x = (((x | mask) + 1) & ~mask) | bits;
         }
@@ -304,7 +319,7 @@ public:
             BitSet maskOfHighestViolation;
             maskOfHighestViolation.set(NumberOfBits - fixedBitsDifference.countlZero() - 1);
             x = (((x | mask) + (x & maskOfHighestViolation)) & ~mask) | bits;
-            x &= (~BitSet()) << (NumberOfBits - fixedBitsDifference.countlZero());
+            x &= ((~BitSet()) << (NumberOfBits - fixedBitsDifference.countlZero()));
             x |= bits;
         }
         
@@ -312,7 +327,7 @@ public:
         assert(x > *this);
         assert((x & mask) == bits); // Does bits have to be 0 outside of mask?
 
-        return x; // FIXME: optional when too much
+        return x;
     }
 
     template<std::uint64_t> friend class BitSet;

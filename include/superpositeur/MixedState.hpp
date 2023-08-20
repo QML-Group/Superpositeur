@@ -114,7 +114,7 @@ public:
 
     template <std::uint64_t MaxNumberOfQubits>
     void applyCircuitInstruction(CircuitInstruction const &circuitInstruction, SparseVector<MaxNumberOfQubits>& data) {
-        if (circuitInstruction.getControlQubitsMask() != 0) {
+        if (!circuitInstruction.getControlQubitsMask().empty()) {
             throw std::runtime_error("Unimplemented: control qubits");
         }
 
@@ -197,13 +197,13 @@ private:
             auto current = internals.it1->first & (~internals.reductionQubits);
             do {
                 auto next = internals.it2->first.nextWithBits(~internals.reductionQubits, current);
-                if (!next) {
+                if (next.empty()) {
                     internals.it2 = internals.end;
                     break;
                 }
 
-                assert((*next) > internals.it2->first);
-                internals.it2 = std::ranges::lower_bound(internals.it2, internals.end, *next, {}, [](auto &&x) { return x.first; });
+                assert(next > internals.it2->first);
+                internals.it2 = std::ranges::lower_bound(internals.it2, internals.end, next, {}, [](auto &&x) { return x.first; });
             } while (internals.it2 != internals.end && ((internals.it2->first & (~internals.reductionQubits)) != current));
 
             if (internals.it2 == internals.end) {

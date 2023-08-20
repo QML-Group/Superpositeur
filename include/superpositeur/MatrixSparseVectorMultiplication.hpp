@@ -13,7 +13,7 @@ public:
     using Input = InputSpan<MaxNumberOfQubits>;
     using Operands = CircuitInstruction::Mask;
 
-    Iterators(Matrix const& m, Input const& s, Operands ops) : matrix(m), span(s), operands(ops) {
+    Iterators(Matrix const& m, Input const& s, Operands ops) : matrix(m), span(s), operands(ops.cast<MaxNumberOfQubits>()) {
         assert(matrix.isSquare());
         assert(std::popcount(matrix.getNumberOfRows()) == 1);
         assert(matrix.getNumberOfRows() >= 2);
@@ -59,8 +59,11 @@ public:
         
         assert(terms.back().iterator != span.end());
 
-        auto input = terms.back().iterator->first.pext(operands);
+        auto input = terms.back().iterator->first.pext(operands); // FIXME: store this with the iterators?
         auto output = terms.back().resultKet.pext(operands);
+
+        auto inputMasked = terms.back().iterator->first & operands; // FIXME: store this with the iterators?
+        auto outputMasked = terms.back().resultKet & operands;
 
         KeyValue<MaxNumberOfQubits> result = {terms.back().resultKet, terms.back().iterator->second * matrix.get(output, input)};
 
@@ -68,14 +71,19 @@ public:
             ++terms.back().iterator;
         } else {
             do {
-                ++terms.back().iterator; // FIXME: use lower_bound and nextWithBits.
-            } while (terms.back().iterator != span.end() && terms.back().iterator->first.pext(operands) != input);
+                auto next = terms.back().iterator->first.nextWithBits(operands, inputMasked);
+                if (next.empty()) {
+                    terms.back().iterator = span.end();
+                    break;
+                }
+                terms.back().iterator = std::ranges::lower_bound(std::next(terms.back().iterator), span.end(), next, {}, [](auto &&x) { return x.first; });
+            } while (terms.back().iterator != span.end() && (terms.back().iterator->first & operands) != inputMasked);
         }
 
         if (terms.back().iterator == span.end()) {
             terms.pop_back();
         } else {
-            terms.back().resultKet = (input == output) ? terms.back().iterator->first : terms.back().iterator->first.pdep(output, operands);
+            terms.back().resultKet = (input == output) ? terms.back().iterator->first : ((terms.back().iterator->first & (~operands)) | outputMasked);
             std::ranges::push_heap(terms, comp);
         }
 
@@ -96,7 +104,7 @@ private:
 
     Matrix const& matrix;
     Input const& span;
-    Operands operands;
+    BasisVector<MaxNumberOfQubits> operands;
     std::vector<SumTerm> terms; // FIXME: inlined vector.
 };
 
