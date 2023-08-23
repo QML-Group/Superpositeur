@@ -6,6 +6,7 @@
 #include <ranges>
 #include <algorithm>
 #include <variant>
+#include <atomic>
 
 #include "superpositeur/CircuitInstruction.hpp"
 #include "superpositeur/Common.hpp"
@@ -56,40 +57,39 @@ public:
 
     template <std::uint64_t MaxNumberOfQubits>
     void simplify(SparseVector<MaxNumberOfQubits> &data) {
-        std::vector<std::uint64_t> sizesPartialSum;
-        sizesPartialSum.reserve(sizes.size() + 1);
-        sizesPartialSum.push_back(0);
-        std::partial_sum(sizes.begin(), sizes.end(), std::back_inserter(sizesPartialSum));
-        assert(sizesPartialSum.size() == sizes.size() + 1);
+        std::vector<std::span<KeyValue<MaxNumberOfQubits>>> lines;
+        lines.reserve(sizes.size());
 
-        std::vector<std::uint64_t> perm(hashes.size(), 0);
-        std::iota(perm.begin(), perm.end(), 0);
-        std::ranges::sort(perm, {}, [&](auto x) { return hashes[x]; });
+        auto it = data.begin();
+        for (auto s: sizes) {
+            assert(it < data.end());
+            assert(static_cast<std::uint64_t>(std::distance(it, data.end())) >= s);
+            auto next = std::next(it, s);
+            lines.emplace_back(it, next);
+            it = next;
+        }
 
-        auto start = perm.begin();
-        while ((start = std::ranges::adjacent_find(start, perm.end(), {}, [&](auto &&x) { return hashes[x]; })) != perm.end()) {
-            auto firstIndex = *start;
-            auto secondIndex = *std::next(start);
+        bool keepGoing = true;
 
-            assert(firstIndex < sizes.size());
-            assert(secondIndex < sizes.size());
+        while (keepGoing) {
+            keepGoing = false;
 
-            if (sizes[firstIndex] != sizes[secondIndex]) {
-                ++start;
-                continue;
+            std::vector<std::atomic_flag> used(hashes.size());
+            for (auto& f: used) { f.clear(); }
+
+            for (std::uint64_t index1 = 0; index1 < hashes.size(); ++index1) {
+                for (std::uint64_t index2 = index1 + 1; index2 < hashes.size(); ++index2) {
+                    if (!used[index1].test() && !used[index2].test() && hashes[index1] == hashes[index2]) { // FIXME: 2 indices in used need to be checked inside a lock
+                        used[index1].test_and_set();
+                        used[index2].test_and_set();
+
+                        keepGoing |= applyGivensRotation(lines[index1], hashes[index1], lines[index2], hashes[index2]); // FIXME: do async
+
+                        used[index1].clear();
+                        used[index2].clear();
+                    }
+                }
             }
-            
-            std::span<KeyValue<MaxNumberOfQubits>> firstLine(data.begin() + sizesPartialSum[firstIndex], data.begin() + sizesPartialSum[firstIndex + 1]);
-            std::span<KeyValue<MaxNumberOfQubits>> secondLine(data.begin() + sizesPartialSum[secondIndex], data.begin() + sizesPartialSum[secondIndex + 1]);
-
-            // FIXME: once collisions are seen to be sufficiently rare, move this to an assert.
-            if (!std::ranges::equal(firstLine, secondLine, {}, &KeyValue<MaxNumberOfQubits>::first, &KeyValue<MaxNumberOfQubits>::first)) {
-                throw std::runtime_error("Congrats, you found a hash collision");
-            };
-
-            applyGivensRotation(firstLine, secondLine);
-
-            ++start;
         }
     }
 

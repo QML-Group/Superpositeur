@@ -15,17 +15,11 @@ public:
 
     Iterators(Matrix const& m, Input const& s, Operands ops) : matrix(m), span(s), operands(ops.cast<MaxNumberOfQubits>()) {
         assert(matrix.isSquare());
-        assert(std::popcount(matrix.getNumberOfRows()) == 1);
+        assert(std::has_single_bit(matrix.getNumberOfRows()));
         assert(matrix.getNumberOfRows() >= 2);
 
-        bool hasIdentity = false;
         for (std::uint64_t i = 0; i < matrix.getNumberOfRows(); ++i) {
             for (std::uint64_t j = 0; j < matrix.getNumberOfCols(); ++j) {
-                if (i == j) {
-                    hasIdentity |= utils::isNotNull(matrix.get(i, j));
-                    continue; // Only one identity iterator.
-                }
-
                 if (utils::isNotNull(matrix.get(i, j))) {
                     auto it = span.begin();
                     while (it != span.end() && it->first.pext(operands) != j) {
@@ -33,14 +27,16 @@ public:
                     }
 
                     if (it != span.end()) {
-                        terms.push_back(SumTerm{it->first.pdep(i, operands), it});
+                        terms.push_back(SumTerm{
+                            .input = BasisVector<MaxNumberOfQubits>().pdep(j, operands),
+                            .output = BasisVector<MaxNumberOfQubits>().pdep(i, operands),
+                            .rowIndex = i,
+                            .resultKet = it->first.pdep(i, operands),
+                            .iterator = it}
+                        );
                     }
                 }
             }
-        }
-        
-        if (hasIdentity && !span.empty()) {
-            terms.push_back({span.begin()->first, span.begin()});
         }
 
         std::ranges::make_heap(terms, [this](auto const& left, auto const& right) { return this->ltSumTerms(left, right); });
@@ -59,31 +55,24 @@ public:
         
         assert(terms.back().iterator != span.end());
 
-        auto input = terms.back().iterator->first.pext(operands); // FIXME: store this with the iterators?
-        auto output = terms.back().resultKet.pext(operands);
+        auto colIndex = terms.back().iterator->first.pext(operands);
+        auto rowIndex = terms.back().rowIndex;
 
-        auto inputMasked = terms.back().iterator->first & operands; // FIXME: store this with the iterators?
-        auto outputMasked = terms.back().resultKet & operands;
+        KeyValue<MaxNumberOfQubits> result = {terms.back().resultKet, terms.back().iterator->second * matrix.get(rowIndex, colIndex)};
 
-        KeyValue<MaxNumberOfQubits> result = {terms.back().resultKet, terms.back().iterator->second * matrix.get(output, input)};
-
-        if (input == output) {
-            ++terms.back().iterator;
-        } else {
-            do {
-                auto next = terms.back().iterator->first.nextWithBits(operands, inputMasked);
-                if (next.empty()) {
-                    terms.back().iterator = span.end();
-                    break;
-                }
-                terms.back().iterator = std::ranges::lower_bound(std::next(terms.back().iterator), span.end(), next, {}, [](auto &&x) { return x.first; });
-            } while (terms.back().iterator != span.end() && (terms.back().iterator->first & operands) != inputMasked);
-        }
+        do {
+            auto next = terms.back().iterator->first.nextWithBits(operands, terms.back().input);
+            if (next.empty()) {
+                terms.back().iterator = span.end();
+                break;
+            }
+            terms.back().iterator = std::ranges::lower_bound(std::next(terms.back().iterator), span.end(), next, {}, [](auto &&x) { return x.first; });
+        } while (terms.back().iterator != span.end() && (terms.back().iterator->first & operands) != terms.back().input);
 
         if (terms.back().iterator == span.end()) {
             terms.pop_back();
         } else {
-            terms.back().resultKet = (input == output) ? terms.back().iterator->first : ((terms.back().iterator->first & (~operands)) | outputMasked);
+            terms.back().resultKet = (terms.back().iterator->first & (~operands)) | terms.back().output;
             std::ranges::push_heap(terms, comp);
         }
 
@@ -92,6 +81,9 @@ public:
 
 private:
     struct SumTerm {
+        BasisVector<MaxNumberOfQubits> input;
+        BasisVector<MaxNumberOfQubits> output;
+        std::uint64_t rowIndex;
         BasisVector<MaxNumberOfQubits> resultKet;
         typename Input::iterator iterator;
     };

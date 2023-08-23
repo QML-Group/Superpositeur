@@ -182,9 +182,7 @@ TEST_F(BitSetTest, Hash) {
     BitSet<192> victim;
     victim.set(1);
     victim.set(150);
-    // 3 * (3 * (1UL << 22) + 0) + 2 = 37748738
-
-    EXPECT_EQ(victim.hash(), 37748738);
+    EXPECT_EQ(victim.hash(), 9652543998053464956);
 }
 
 TEST_F(BitSetTest, CountlZero) {

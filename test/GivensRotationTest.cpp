@@ -13,7 +13,10 @@ TEST_F(MixedStateSimplifierTest, ApplyGivensRotation) {
     SparseVector<64> a = {{BV(0), 1.}, {BV(1), 1.}};
     SparseVector<64> b = {{BV(0), 1.}, {BV(1), 1.}};
 
-    applyGivensRotation({a.begin(), a.end()}, {b.begin(), b.end()});
+    std::uint64_t hashA = 0xDEADBEEF;
+    std::uint64_t hashB = 0xDEADBEEF;
+
+    applyGivensRotation({a.begin(), a.end()}, hashA, {b.begin(), b.end()}, hashB);
 
     EXPECT_EQ(a[0].first, BV(0));
     EXPECT_EQ(a[0].second, 0.);
@@ -25,6 +28,9 @@ TEST_F(MixedStateSimplifierTest, ApplyGivensRotation) {
     EXPECT_EQ(b[1].first, BV(1));
     EXPECT_DOUBLE_EQ(b[1].second.real(), std::sqrt(2));
     EXPECT_DOUBLE_EQ(b[1].second.imag(), 0.);
+
+    // EXPECT_EQ(hashA, 1);
+    // EXPECT_EQ(hashB, 1); // FIXME
 }
 
 // FIXME: should fail / revert if keys are not identical in both rows.

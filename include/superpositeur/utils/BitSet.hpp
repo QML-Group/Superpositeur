@@ -261,11 +261,18 @@ public:
     }
 
     std::uint64_t hash() const {
-        std::uint64_t result = data[STORAGE_SIZE - 1];
+        auto singleHash = [] (std::uint64_t x) {
+            x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9UL;
+            x = (x ^ (x >> 27)) * 0x94d049bb133111ebUL;
+            x = x ^ (x >> 31);
+            return x;
+        };
+
+        std::uint64_t result = singleHash(data[STORAGE_SIZE - 1]);
         for (std::uint64_t i = 2; i <= STORAGE_SIZE; ++i) {
-            result = 3 * result + data[STORAGE_SIZE - i];
+            result = 3 * result + singleHash(data[STORAGE_SIZE - i]);
         }
-        return result;
+        return result + 1;
     }
 
     std::uint64_t countlZero() const {
