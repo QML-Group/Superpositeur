@@ -32,6 +32,6 @@
 *.app
 
 
-build/*
-__pycache__/*
-*.egg_info
+build
+__pycache__
+*.egg-info
