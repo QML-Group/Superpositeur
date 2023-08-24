@@ -8,6 +8,7 @@
 #include <bit>
 #include <optional>
 #include <compare>
+#include <algorithm>
 
 #ifdef __BMI2__
 #include <x86gprintrin.h> // pdep, pext
