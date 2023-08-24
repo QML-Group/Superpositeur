@@ -12,6 +12,8 @@ include(CTest)
 include(GoogleTest)
 set(CMAKE_CTEST_ARGUMENTS "--output-on-failure")
 
+file(GLOB generated_random_integration_tests "${CMAKE_CURRENT_SOURCE_DIR}/randomized/*.cpp")
+
 add_executable(superpositeur-test
     "${CMAKE_CURRENT_SOURCE_DIR}/BitSetTest.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/GivensRotationTest.cpp"
@@ -20,6 +22,7 @@ add_executable(superpositeur-test
     "${CMAKE_CURRENT_SOURCE_DIR}/MixedStateTest.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/MatrixTest.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/OperandPermutationTest.cpp"
+    ${generated_random_integration_tests}
 )
 
 target_link_libraries(superpositeur-test

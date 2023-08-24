@@ -11,8 +11,7 @@ namespace superpositeur {
 
 class Circuit {
 public:
-    explicit Circuit(std::uint64_t n)
-        : numberOfQubits(n) {}
+    Circuit() = default;
 
     void addInstruction(CircuitInstruction const &circuitInstruction) {
         data.push_back(circuitInstruction);
@@ -42,8 +41,6 @@ public:
         return quantumState;
     }
 
-    std::uint64_t getNumberOfQubits() const { return numberOfQubits; }
-
 private:
     struct Loop {
         std::vector<CircuitInstruction> block;
@@ -51,7 +48,6 @@ private:
     };
 
     std::vector<std::variant<CircuitInstruction, Loop>> data;
-    std::uint64_t numberOfQubits = 0;
 };
 
 } // namespace  superpositeur
