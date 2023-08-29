@@ -10,9 +10,12 @@
 namespace superpositeur {
 
 template <std::uint64_t MaxNumberOfQubits = 64>
-inline bool applyGivensRotation(std::span<KeyValue<MaxNumberOfQubits>> firstLine, std::uint64_t& firstHash, std::span<KeyValue<MaxNumberOfQubits>> secondLine, std::uint64_t& secondHash) {
+inline void applyGivensRotation(std::span<KeyValue<MaxNumberOfQubits>> firstLine, std::uint64_t& firstHash, std::span<KeyValue<MaxNumberOfQubits>> secondLine, std::uint64_t& secondHash) {
+    assert(!firstLine.empty());
+    assert(!secondLine.empty());
+
     assert(firstHash == secondHash);
-    
+
     bool foundNonZeroEntry = false;
 
     std::complex<double> c = 0;
@@ -22,22 +25,30 @@ inline bool applyGivensRotation(std::span<KeyValue<MaxNumberOfQubits>> firstLine
     auto secondIt = secondLine.begin();
     while (firstIt != firstLine.end()) {
         assert(secondIt != secondLine.end());
-
-        if (utils::isNull(firstIt->second)) {
+        
+        if (utils::isNull(firstIt->second)) [[unlikely]] {
             ++firstIt;
+            if (!foundNonZeroEntry) {
+                firstLine = firstLine.subspan(1);
+            }
             continue;
         }
 
-        if (utils::isNull(secondIt->second)) {
+        assert(secondIt != secondLine.end());
+
+        if (utils::isNull(secondIt->second)) [[unlikely]] {
             ++secondIt;
+            if (!foundNonZeroEntry) {
+                secondLine = secondLine.subspan(1);
+            }
             continue;
         }
 
-        if (firstIt->first != secondIt->first) {
+        if (firstIt->first != secondIt->first) [[unlikely]] {
             throw std::runtime_error("Congrats, you found a hash collision");
         }
 
-        if (!foundNonZeroEntry) {
+        if (!foundNonZeroEntry) [[unlikely]] {
             auto const& a = firstIt->second;
             auto const& b = secondIt->second;
             assert(std::hypot(std::abs(a), std::abs(b)) > config::ATOL);
@@ -54,19 +65,17 @@ inline bool applyGivensRotation(std::span<KeyValue<MaxNumberOfQubits>> firstLine
         firstIt->second = c * oldFirst - s * secondIt->second;
         secondIt->second = std::conj(s) * oldFirst + std::conj(c) * secondIt->second;
 
-        if (utils::isNull(firstIt->second)) {
+        if (utils::isNull(firstIt->second)) [[unlikely]] {
             firstHash -= firstIt->first.hash();
         }
 
-        if (utils::isNull(secondIt->second)) {
+        if (utils::isNull(secondIt->second)) [[unlikely]] {
             secondHash -= secondIt->first.hash();
         }
 
         ++firstIt;
         ++secondIt;
     }
-
-    return foundNonZeroEntry;
 }
 
 } // namespace  superpositeur

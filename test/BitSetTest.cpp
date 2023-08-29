@@ -105,45 +105,6 @@ TEST_F(BitSetTest, AndLarge) {
     EXPECT_FALSE(victim.test(875));
 }
 
-TEST_F(BitSetTest, LeftShiftSmall) {
-    BitSet<64> victim{"000010000010001"};
-    EXPECT_EQ(victim << 0, victim);
-    EXPECT_EQ(victim << 1, BitSet<64>{"000100000100010"});
-    EXPECT_EQ(victim << 2, BitSet<64>{"001000001000100"});
-    EXPECT_EQ(victim << 14, BitSet<64>{"00001000001000100000000000000"});
-    EXPECT_EQ(victim << 15, BitSet<64>{"000010000010001000000000000000"});
-    EXPECT_EQ(victim << 63, BitSet<64>{"1000000000000000000000000000000000000000000000000000000000000000"});
-    EXPECT_EQ(victim << 64, BitSet<64>{"0000000000000000000000000000000000000000000000000000000000000000"});
-}
-    
-TEST_F(BitSetTest, LeftShiftLarge) {
-    BitSet<512> victim;
-    victim.set(3);
-    victim.set(30);
-    victim.set(300);
-    EXPECT_EQ(victim << 0, victim);
-
-    BitSet<512> expected1;
-    expected1.set(4);
-    expected1.set(31);
-    expected1.set(301);
-
-    EXPECT_EQ(victim << 1, expected1);
-
-    BitSet<512> expected200;
-    expected200.set(203);
-    expected200.set(230);
-    expected200.set(500);
-    
-    EXPECT_EQ(victim << 200, expected200);
-
-    BitSet<512> expected400;
-    expected400.set(403);
-    expected400.set(430);
-    
-    EXPECT_EQ(victim << 400, expected400);
-}
-
 TEST_F(BitSetTest, Or) {
     BitSet<704> victim{};
     victim.set(457);
@@ -155,20 +116,6 @@ TEST_F(BitSetTest, Or) {
     expected.set(1);
     expected.set(457);
     EXPECT_EQ(BitSet<704>("10") | victim, expected);
-}
-
-TEST_F(BitSetTest, Add) {
-    EXPECT_EQ(BitSet<704>(123) + BitSet<704>(456), BitSet<704>(579));
-    EXPECT_EQ(BitSet<448>(123) + BitSet<448>(456), BitSet<448>(579));
-
-    auto x = BitSet<448>("10000000000000000000000000000000000000000000000000000000000000000");
-    EXPECT_EQ(BitSet<448>(~(0UL)) + BitSet<448>(1), x);
-
-    EXPECT_EQ(x + BitSet<448>(1), BitSet<448>("10000000000000000000000000000000000000000000000000000000000000001"));
-
-    auto y = BitSet<448>();
-    y.set(447);
-    EXPECT_EQ(y + y, BitSet<448>());
 }
 
 TEST_F(BitSetTest, Not) {
@@ -200,29 +147,6 @@ TEST_F(BitSetTest, CountlZero) {
     EXPECT_EQ(victim.countlZero(), 8576 - 4452 - 1);
 
     EXPECT_EQ(BitSet<64>("11111").countlZero(), 59);
-}
-
-TEST_F(BitSetTest, NextWithBits) {
-    // FIXME: also test the extra bits in "bits" of "mask" that are not taken into account.
-    BitSet<64> victim("001");
-    EXPECT_EQ(victim.nextWithBits({"1111111111111111111111111111111111111111111111111111111111111110"}, {"000"}), BitSet<64>());
-    EXPECT_TRUE(victim.nextWithBits({"1111111111111111111111111111111111111111111111111111111111111110"}, {"000"}).empty());
-    EXPECT_EQ(victim.nextWithBits({"001"}, {"000"}), std::optional<BitSet<64>>("010"));
-    EXPECT_EQ(victim.nextWithBits({"010"}, {"010"}), std::optional<BitSet<64>>("010"));
-    EXPECT_EQ(victim.nextWithBits({"010"}, {"000"}), std::optional<BitSet<64>>("100"));
-    EXPECT_EQ(victim.nextWithBits({"110"}, {"110"}), std::optional<BitSet<64>>("110"));
-    EXPECT_EQ(victim.nextWithBits({"1111111111111111111111111111111111111111111111111111111111111111"}, {"000"}), BitSet<64>());
-    EXPECT_EQ(victim.nextWithBits({"1111111111111111111111111111111111111111111111111111111111111111"}, {"000"}), BitSet<64>());
-    EXPECT_EQ(victim.nextWithBits({"1111111111111111111111111111111111111111111111111111111111111111"}, {"001"}), BitSet<64>());
-    EXPECT_EQ(victim.nextWithBits({"1111111111111111111111111111111111111111111111111111111111111111"}, {"001"}), BitSet<64>());
-    EXPECT_EQ(victim.nextWithBits({"111"}, {"010"}), std::optional<BitSet<64>>("010"));
-    EXPECT_EQ(victim.nextWithBits({"111"}, {"111"}), std::optional<BitSet<64>>("111"));
-
-    BitSet<128> victim2("101010101");
-    EXPECT_EQ(victim2.nextWithBits({"1111111111111111111111111111111111111111111111111111111111111111"}, {"001"}),
-        std::optional<BitSet<128>>("10000000000000000000000000000000000000000000000000000000000000001"));
-    EXPECT_EQ(victim2.nextWithBits({"1111111111111111111111111111111111111111111111111111111111111111"}, {"101010101"}),
-        std::optional<BitSet<128>>("10000000000000000000000000000000000000000000000000000000101010101"));
 }
 
 TEST_F(BitSetTest, Pext) {

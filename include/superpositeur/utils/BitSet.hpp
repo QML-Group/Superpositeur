@@ -132,13 +132,9 @@ public:
         setBit(data[index / BITS_PER_UNIT], index % BITS_PER_UNIT, value);
     }
 
-    inline auto operator<=>(BitSet<NumberOfBits> const &other) const {
-        return SPACESHIP(other);
-    }
+    inline auto operator<=>(BitSet<NumberOfBits> const &other) const = default;
 
-    inline bool operator==(BitSet<NumberOfBits> const &other) const {
-        return data == other.data;
-    }
+    inline bool operator==(BitSet<NumberOfBits> const &other) const = default;
 
     inline void operator^=(BitSet<NumberOfBits> const &other) {
         for (std::uint64_t i = 0; i < STORAGE_SIZE; ++i) {
@@ -192,53 +188,6 @@ public:
             }
             d = 0;
         }
-    }
-
-    BitSet operator+(BitSet other) {
-        BitSet result = *this;
-        std::uint64_t carry = 0;
-        for (std::uint64_t i = 0; i < STORAGE_SIZE; ++i) {
-            result.data[i] += carry;
-            carry = result.data[i] < carry;
-            result.data[i] += other.data[i];
-            carry += result.data[i] < other.data[i];
-        }
-
-        return result;
-    }
-
-    BitSet operator+(std::uint64_t n) {
-        BitSet result = *this;
-        result.data[0] += n;
-        if (result.STORAGE_SIZE > 1) {
-            result.data[1] += (result.data[0] < n);
-        }
-
-        return result;
-    }
-
-    BitSet operator<<(std::uint64_t n) {
-        BitSet result;
-
-        if (n >= NumberOfBits) {
-            return result;
-        }
-
-        std::uint64_t div = n / BITS_PER_UNIT;
-        std::uint64_t rem = n % BITS_PER_UNIT;
-
-        assert(div < STORAGE_SIZE);
-
-        std::uint64_t topMask = rem == 0UL ? 0UL : (~0UL) << (BITS_PER_UNIT - rem);
-
-        result.data[div] = data[0] << rem;
-        for (std::uint64_t i = div + 1; i < STORAGE_SIZE; ++i) {
-            result.data[i] = data[i - div] << rem;
-            result.data[i] |= (data[i - div - 1] & topMask) >> (BITS_PER_UNIT - rem);
-            // result.data[i] |= _pext_u64(data[i - div - 1], topMask); // This is also possible but uses pext intrinsics.
-        }
-
-        return result;
     }
 
     std::uint64_t toUInt64() const {
@@ -306,38 +255,7 @@ public:
         }
         return result;
     }
-
-    BitSet nextWithBits(BitSet mask, BitSet bits) const { // Returns 0 if doesn't fit.
-        assert((bits & (~mask)).empty()); // FIXME: use this below.
-
-        if (*this >= (((~BitSet(0)) & (~mask)) | (mask & bits))) {
-            return BitSet{};
-        }
-
-        BitSet x = *this;
-
-        auto fixedBitsDifference = (x ^ bits) & mask;
-
-        if (fixedBitsDifference.empty())
-        {
-            x = (((x | mask) + 1) & ~mask) | bits;
-        }
-        else
-        {
-            BitSet maskOfHighestViolation;
-            maskOfHighestViolation.set(NumberOfBits - fixedBitsDifference.countlZero() - 1);
-            x = (((x | mask) + (x & maskOfHighestViolation)) & ~mask) | bits;
-            x &= ((~BitSet()) << (NumberOfBits - fixedBitsDifference.countlZero()));
-            x |= bits;
-        }
-        
-        // Some specification of this function.
-        assert(x > *this);
-        assert((x & mask) == bits); // Does bits have to be 0 outside of mask?
-
-        return x;
-    }
-
+    
     template<std::uint64_t> friend class BitSet;
 
     template <std::uint64_t MaskNumberOfBits>
@@ -370,18 +288,6 @@ public:
     }
 
 private:
-    template <std::uint64_t Index = STORAGE_SIZE - 1>
-    inline auto SPACESHIP(BitSet<NumberOfBits> const &other) const {
-        auto x = data[Index] <=> other.data[Index];
-        if constexpr (Index > 0) {
-            if (x == 0) {
-                return SPACESHIP<Index - 1>(other);
-            }
-        }
-
-        return x;
-    }
-
     std::array<std::uint64_t, STORAGE_SIZE> data{};
 };
 

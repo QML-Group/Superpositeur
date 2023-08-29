@@ -6,8 +6,7 @@
 #include <ranges>
 #include <algorithm>
 #include <variant>
-#include <atomic>
-
+#include <thread>
 #include "superpositeur/CircuitInstruction.hpp"
 #include "superpositeur/Common.hpp"
 #include "superpositeur/GivensRotation.hpp"
@@ -51,15 +50,15 @@ public:
         }
 
         std::visit([&](auto &data) {
-            simplify(data);
+            simplifyImpl(data);
         }, dataVariant);
     }
 
     template <std::uint64_t MaxNumberOfQubits>
-    void simplify(SparseVector<MaxNumberOfQubits> &data) {
+    void simplifyImpl(SparseVector<MaxNumberOfQubits> &data) {
         std::vector<std::span<KeyValue<MaxNumberOfQubits>>> lines;
         lines.reserve(sizes.size());
-
+    
         auto it = data.begin();
         for (auto s: sizes) {
             assert(it < data.end());
@@ -69,33 +68,65 @@ public:
             it = next;
         }
 
-        bool keepGoing = true;
+        auto partial = [&] (std::uint64_t start, std::uint64_t end) {
+            bool keepGoing = true;
+            while (keepGoing) {
+                keepGoing = false;
 
-        while (keepGoing) {
-            keepGoing = false;
+                for (std::uint64_t index1 = start; index1 < end; ++index1) {
+                    if (lines[index1].empty()) [[unlikely]] {
+                        continue;
+                    }
 
-            std::vector<std::atomic_flag> used(hashes.size());
-            for (auto& f: used) { f.clear(); }
+                    for (std::uint64_t index2 = index1 + 1; index2 < end; ++index2) {
+                        if (lines[index2].empty()) [[unlikely]] {
+                            continue;
+                        }
 
-            for (std::uint64_t index1 = 0; index1 < hashes.size(); ++index1) {
-                for (std::uint64_t index2 = index1 + 1; index2 < hashes.size(); ++index2) {
-                    if (!used[index1].test() && !used[index2].test() && hashes[index1] == hashes[index2]) { // FIXME: 2 indices in used need to be checked inside a lock
-                        used[index1].test_and_set();
-                        used[index2].test_and_set();
-
-                        keepGoing |= applyGivensRotation(lines[index1], hashes[index1], lines[index2], hashes[index2]); // FIXME: do async
-
-                        used[index1].clear();
-                        used[index2].clear();
+                        if (hashes[index1] == hashes[index2]) {
+                            keepGoing = true;
+                            applyGivensRotation<MaxNumberOfQubits>(lines[index1], hashes[index1], lines[index2], hashes[index2]);
+                            break;
+                        }
                     }
                 }
             }
+        };
+
+        static constexpr std::uint64_t LINES_PER_THREAD = 1000;
+        static constexpr std::uint64_t MAX_THREADS = 16;
+        std::uint64_t const initial_num_threads = std::min(MAX_THREADS, lines.size() / LINES_PER_THREAD + 1);
+
+        std::array<std::thread, MAX_THREADS> threads;
+
+        auto doWithThreads = [&](std::uint64_t n) {
+            assert(n <= MAX_THREADS);
+
+            std::uint64_t start = 0;
+            std::uint64_t const step = lines.size() / n;
+            for (std::uint64_t i = 0; i < n; ++i) {
+                std::uint64_t end = std::min(lines.size(), start + step);
+                threads[i] = std::thread(partial, start, end);
+                start = end;
+            }
+
+            for (std::uint64_t i = 0; i < n; ++i) {
+                threads[i].join(); // FIXME: scheduling could be better, as well as partitioning?
+            }
+        };
+        
+        auto num_threads = initial_num_threads;
+        while (num_threads >= 2) {
+            doWithThreads(num_threads);
+            num_threads >>= 1;
         }
+
+        partial(0, lines.size());
     }
 
     void operator()(CircuitInstruction const &circuitInstruction) {
         simplify();
-        
+
         auto bitWidth = circuitInstruction.getOperandsMask().bitWidth();
         if (bitWidth > currentSize()) {
             if (bitWidth <= 128) {
@@ -105,9 +136,10 @@ public:
             }
         }
 
-        std::visit([&](auto&& variant) {
-            applyCircuitInstruction(circuitInstruction, variant);
+        std::visit([&](auto&& data) {
+            applyCircuitInstruction(circuitInstruction, data);
         }, dataVariant);
+        
 
         assert(isConsistent());
     }
@@ -132,10 +164,12 @@ public:
             auto end = std::next(start, size);
 
             for (auto const& krausOperator: circuitInstruction.getKrausOperators()) {
-                auto aux = multiplyMatrix(krausOperator, {start, end}, circuitInstruction.getOperandsMask(), std::back_inserter(newData));
-                if (aux.numberOfAddedElements > 0) {
-                    newSizes.push_back(aux.numberOfAddedElements);
-                    hashes.push_back(aux.hashOfTheKeys);
+                auto sizeBefore = newData.size();
+                auto hashOfTheKeys = multiplyMatrix(krausOperator, {start, end}, circuitInstruction.getOperandsMask(), std::back_inserter(newData));
+                auto numberOfAddedElements = newData.size() - sizeBefore;
+                if (numberOfAddedElements > 0) {
+                    newSizes.push_back(numberOfAddedElements);
+                    hashes.push_back(hashOfTheKeys);
                 }
             }
 
@@ -145,8 +179,6 @@ public:
         data.swap(newData);
         sizes.swap(newSizes);
     }
-
-private:
 
 private:
     struct ReducedDensityMatrixIterator {
@@ -196,14 +228,7 @@ private:
 
             auto current = internals.it1->first & (~internals.reductionQubits);
             do {
-                auto next = internals.it2->first.nextWithBits(~internals.reductionQubits, current);
-                if (next.empty()) {
-                    internals.it2 = internals.end;
-                    break;
-                }
-
-                assert(next > internals.it2->first);
-                internals.it2 = std::ranges::lower_bound(internals.it2, internals.end, next, {}, [](auto &&x) { return x.first; });
+                ++internals.it2;
             } while (internals.it2 != internals.end && ((internals.it2->first & (~internals.reductionQubits)) != current));
 
             if (internals.it2 == internals.end) {

@@ -18,19 +18,19 @@ of complex numbers involved in quantum states, and their modulus is always <= 1.
 */
 
 inline constexpr bool isNotNull(double d) {
-#if defined(_MSC_VER)
-    return d > config::ATOL || -d > config::ATOL;
-#else
-    return std::abs(d) > config::ATOL;
-#endif
+    return std::abs(d) >= config::ATOL;
+}
+
+inline constexpr bool isNull(double d) {
+    return std::abs(d) < config::ATOL;
 }
 
 inline constexpr bool isNotNull(std::complex<double> c) {
     return isNotNull(c.real()) || isNotNull(c.imag());
 }
 
-template <typename T> inline constexpr bool isNull(T t) {
-    return !isNotNull(t);
+inline constexpr bool isNull(std::complex<double> c) {
+    return isNull(c.real()) && isNull(c.imag());
 }
 
 } // namespace utils

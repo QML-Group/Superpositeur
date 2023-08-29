@@ -13,24 +13,27 @@ public:
     using Input = InputSpan<MaxNumberOfQubits>;
     using Operands = CircuitInstruction::Mask;
 
-    Iterators(Matrix const& m, Input const& s, Operands ops) : matrix(m), span(s), operands(ops.cast<MaxNumberOfQubits>()) {
+    Iterators(Matrix const& m, Input const& s, Operands ops) : matrix(m), begin(s.begin()), end(s.end()), operands(ops.cast<MaxNumberOfQubits>()) {
         assert(matrix.isSquare());
         assert(std::has_single_bit(matrix.getNumberOfRows()));
         assert(matrix.getNumberOfRows() >= 2);
 
+        iterators.reserve(matrix.getNumberOfRows() * matrix.getNumberOfCols());
+
         for (std::uint64_t i = 0; i < matrix.getNumberOfRows(); ++i) {
             for (std::uint64_t j = 0; j < matrix.getNumberOfCols(); ++j) {
                 if (utils::isNotNull(matrix.get(i, j))) {
-                    auto it = span.begin();
-                    while (it != span.end() && it->first.pext(operands) != j) {
+                    auto it = begin;
+                    while (it != end && it->first.pext(operands) != j) {
                         ++it;
                     }
 
-                    if (it != span.end()) {
-                        terms.push_back(SumTerm{
+                    if (it != end) {
+                        iterators.emplace_back(Iterator{
                             .input = BasisVector<MaxNumberOfQubits>().pdep(j, operands),
                             .output = BasisVector<MaxNumberOfQubits>().pdep(i, operands),
                             .rowIndex = i,
+                            .colIndex = j,
                             .resultKet = it->first.pdep(i, operands),
                             .iterator = it}
                         );
@@ -38,75 +41,49 @@ public:
                 }
             }
         }
-
-        std::ranges::make_heap(terms, [this](auto const& left, auto const& right) { return this->ltSumTerms(left, right); });
     }
 
-    std::optional<KeyValue<MaxNumberOfQubits>> next() {
-        if (terms.empty()) {
-            return {};
+    KeyValue<MaxNumberOfQubits> next() {
+        if (iterators.empty()) [[unlikely]] {
+            return { BasisVector<MaxNumberOfQubits>(), { NAN, NAN } };
         }
-        
-        auto const comp = [this](auto const& left, auto const& right) { return this->ltSumTerms(left, right); };
 
-        assert(std::ranges::is_heap(terms, comp));
+        auto topIt = std::ranges::min_element(iterators, {}, &Iterator::resultKet);
 
-        std::ranges::pop_heap(terms, comp);
-        
-        assert(terms.back().iterator != span.end());
-
-        auto colIndex = terms.back().iterator->first.pext(operands);
-        auto rowIndex = terms.back().rowIndex;
-
-        KeyValue<MaxNumberOfQubits> result = {terms.back().resultKet, terms.back().iterator->second * matrix.get(rowIndex, colIndex)};
+        KeyValue<MaxNumberOfQubits> result = { topIt->resultKet, topIt->iterator->second * matrix.get(topIt->rowIndex, topIt->colIndex) };
 
         do {
-            auto next = terms.back().iterator->first.nextWithBits(operands, terms.back().input);
-            if (next.empty()) {
-                terms.back().iterator = span.end();
-                break;
-            }
-            terms.back().iterator = std::ranges::lower_bound(std::next(terms.back().iterator), span.end(), next, {}, [](auto &&x) { return x.first; });
-        } while (terms.back().iterator != span.end() && (terms.back().iterator->first & operands) != terms.back().input);
+            ++topIt->iterator;
+        } while (topIt->iterator != end && (topIt->iterator->first & operands) != topIt->input);
 
-        if (terms.back().iterator == span.end()) {
-            terms.pop_back();
+        if (topIt->iterator != end) [[likely]] {
+            topIt->resultKet = (topIt->iterator->first & (~operands)) | topIt->output;
         } else {
-            terms.back().resultKet = (terms.back().iterator->first & (~operands)) | terms.back().output;
-            std::ranges::push_heap(terms, comp);
+            iterators.erase(topIt);
         }
 
         return result;
     }
 
 private:
-    struct SumTerm {
+    struct Iterator {
         BasisVector<MaxNumberOfQubits> input;
         BasisVector<MaxNumberOfQubits> output;
         std::uint64_t rowIndex;
+        std::uint64_t colIndex;
         BasisVector<MaxNumberOfQubits> resultKet;
         typename Input::iterator iterator;
     };
-
-    bool ltSumTerms(auto const& left, auto const& right) {
-        assert(left.iterator != span.end() && right.iterator != span.end());
-
-        return left.resultKet > right.resultKet; // GT because we want a min-heap.
-    }
-
+    
     Matrix const& matrix;
-    Input const& span;
+    Input::iterator const begin;
+    Input::iterator const end;
     BasisVector<MaxNumberOfQubits> operands;
-    std::vector<SumTerm> terms; // FIXME: inlined vector.
-};
-
-struct AddedElementsAndHash {
-    std::uint64_t numberOfAddedElements = 0;
-    std::uint64_t hashOfTheKeys = 0; // This is used as a hash to compare the keys of two association lists.
+    std::vector<Iterator> iterators;
 };
 
 template <std::uint64_t MaxNumberOfQubits>
-inline AddedElementsAndHash multiplyMatrix(Matrix matrix, InputSpan<MaxNumberOfQubits> input, CircuitInstruction::Mask operands, std::back_insert_iterator<SparseVector<MaxNumberOfQubits>> inserter) {
+inline std::uint64_t multiplyMatrix(Matrix const& matrix, InputSpan<MaxNumberOfQubits> input, CircuitInstruction::Mask const& operands, std::back_insert_iterator<SparseVector<MaxNumberOfQubits>> inserter) {
     assert(matrix.isSquare());
     assert(std::popcount(matrix.getNumberOfRows()) == 1);
     assert(matrix.getNumberOfRows() >= 2);
@@ -114,34 +91,33 @@ inline AddedElementsAndHash multiplyMatrix(Matrix matrix, InputSpan<MaxNumberOfQ
 
     auto iterators = Iterators<MaxNumberOfQubits>(matrix, input, operands);
 
-    std::uint64_t numberOfAddedElements = 0;
     std::uint64_t hashOfTheKeys = 0;
     
-    std::optional<KeyValue<MaxNumberOfQubits>> accumulator;
-    while (auto kv = iterators.next()) {
-        if (!accumulator) {
-            accumulator = kv;
-        } else if (kv->first != accumulator->first) {
-            assert(kv->first > accumulator->first);
+    KeyValue<MaxNumberOfQubits> accumulator = { BasisVector<MaxNumberOfQubits>(), 0.};
 
-            if (utils::isNotNull(accumulator->second)) {
-                inserter = *accumulator;
-                hashOfTheKeys += accumulator->first.hash(); // FIXME: hashing is only required when the output is a mixed state.
-                ++numberOfAddedElements;
+    auto kv = iterators.next();
+    while (!std::isnan(kv.second.real())) {
+        if (kv.first != accumulator.first) {
+            assert(kv.first > accumulator.first);
+
+            if (utils::isNotNull(accumulator.second)) [[likely]] {
+                inserter = accumulator;
+                hashOfTheKeys += accumulator.first.hash();
             }
             accumulator = kv;
         } else {
-            accumulator->second += kv->second;
+            accumulator.second += kv.second;
         }
+
+        kv = iterators.next();
     }
 
-    if (accumulator && utils::isNotNull(accumulator->second)) {
-        inserter = *accumulator;
-        hashOfTheKeys += accumulator->first.hash(); // FIXME: hashing is only required when the output is a mixed state.
-        ++numberOfAddedElements;
+    if (utils::isNotNull(accumulator.second)) {
+        inserter = accumulator;
+        hashOfTheKeys += accumulator.first.hash();
     }
 
-    return {numberOfAddedElements, hashOfTheKeys};
+    return hashOfTheKeys;
 }
 
 }
