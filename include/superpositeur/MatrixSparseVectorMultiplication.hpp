@@ -32,8 +32,7 @@ public:
                         iterators.emplace_back(Iterator{
                             .input = BasisVector<MaxNumberOfQubits>().pdep(j, operands),
                             .output = BasisVector<MaxNumberOfQubits>().pdep(i, operands),
-                            .rowIndex = i,
-                            .colIndex = j,
+                            .coeff = matrix.get(i, j),
                             .resultKet = it->first.pdep(i, operands),
                             .iterator = it}
                         );
@@ -50,7 +49,7 @@ public:
 
         auto topIt = std::ranges::min_element(iterators, {}, &Iterator::resultKet);
 
-        KeyValue<MaxNumberOfQubits> result = { topIt->resultKet, topIt->iterator->second * matrix.get(topIt->rowIndex, topIt->colIndex) };
+        KeyValue<MaxNumberOfQubits> result = { topIt->resultKet, topIt->iterator->second * topIt->coeff };
 
         do {
             ++topIt->iterator;
@@ -69,8 +68,7 @@ private:
     struct Iterator {
         BasisVector<MaxNumberOfQubits> input;
         BasisVector<MaxNumberOfQubits> output;
-        std::uint64_t rowIndex;
-        std::uint64_t colIndex;
+        std::complex<double> coeff;
         BasisVector<MaxNumberOfQubits> resultKet;
         typename Input::iterator iterator;
     };
