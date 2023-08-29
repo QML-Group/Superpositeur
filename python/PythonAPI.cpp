@@ -156,9 +156,8 @@ static PyObject *PyQuantumState_apply(PyObject *self, PyObject *args, PyObject *
         return nullptr;
     }
 
-    CircuitInstruction instruction(ks, *operands);
-
     try {
+        CircuitInstruction instruction(ks, *operands);
         ((PyQuantumState *) self)->state(instruction);
     } catch (std::exception const& e) {
         return PyErr_Format(PyExc_RuntimeError, "Simulation error: %s", e.what());
