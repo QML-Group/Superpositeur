@@ -1,31 +1,64 @@
-#include <gtest/gtest.h>
+#include "gtest/gtest.h"
+#include "gmock/gmock.h"
+#include <chrono>
+#include <iostream>
 
 #include "superpositeur/Circuit.hpp"
 #include "superpositeur/DefaultOperations.hpp"
 
 namespace superpositeur {
+
+using namespace std::complex_literals;
+
+using testing::ElementsAreArray;
+using testing::DoubleNear;
+
 namespace {
 Circuit randomCircuit() {
-    using namespace std::complex_literals;
 
     Circuit c;
-    c.addInstruction(CircuitInstruction({ Matrix{ { -0.002551430708024327 + -0.3194569797078468i, -0.07470193499339242 + 0.587511903901566i }, { 0.09779486040621987 + 0.015633015319773114i, -0.26121297337863236 + -0.08402764752123848i } }, Matrix{ { 0.20479398490036343 + 0.058692174252880064i, 0.3558216335633213 + 0.0613515840833008i }, { 0.23938453619061645 + -0.3207601461890497i, -0.05529758006606625 + -0.2620768194631632i } }, Matrix{ { 0.4810819350481884 + -0.1648419166519917i, -0.16375278132177773 + 0.17548134234266255i }, { 0.2604589029729853 + -0.3114784039113847i, 0.24543779563740353 + -0.11085019643637536i } }, Matrix{ { 0.26695418059771825 + 0.1401016903990969i, -0.09327477648297933 + 0.3936959596166i }, { 0.034293104608553726 + -0.4086756294860772i, -0.24545046397880865 + -0.13327644930189367i } } }, { QubitIndex{ 1 } }));
+    c.addInstruction(CircuitInstruction({ default_operations::CNOT }, { QubitIndex{ 2 }, QubitIndex{ 0 } }));
 
-    c.addInstruction(CircuitInstruction({ Matrix{ { 0.03036101645971256 + 0.2919149595019437i, 0.24608267935085937 + 0.2522395957531728i }, { 0.5483192424820134 + -0.3484189542769851i, -0.3750035485470619 + -0.13640641791385155i } }, Matrix{ { 0.15762401794051487 + 0.08870548287209211i, -0.20137572990003844 + -0.030552881492239392i }, { -0.10903378840160281 + 0.12119548208704539i, 0.03458432508795005 + 0.10648529812854535i } }, Matrix{ { 0.4905646947244857 + 0.09383141832262784i, -0.236273383393639 + 0.3232511296778894i }, { 0.28465715317089857 + 0.12202835687621186i, 0.4879904819803986 + 0.1349572104059659i } }, Matrix{ { -0.2884707026497015 + -0.057951620139092545i, -0.014671765498002608 + -0.41084666583238516i }, { -0.016281823679997934 + -0.01748989005276123i, -0.2772729537750374 + 0.0028589266086261576i } } }, { QubitIndex{ 2 } }));
+    c.addInstruction(CircuitInstruction({ default_operations::CNOT }, { QubitIndex{ 2 }, QubitIndex{ 1 } }));
 
-    c.addInstruction(CircuitInstruction({ default_operations::CNOT }, { QubitIndex{ 1 }, QubitIndex{ 2 } }));
+    c.addInstruction(CircuitInstruction({ default_operations::CNOT }, { QubitIndex{ 2 }, QubitIndex{ 1 } }));
 
-    c.addInstruction(CircuitInstruction({ Matrix{ { 0.16630718407763867 + -0.24862895601418392i, -0.09806350826258962 + -0.14188606716680266i }, { 0.275349633639288 + 0.10700374243560051i, 0.17031165369116397 + -0.07654115211006363i } }, Matrix{ { 0.39399959346597446 + -0.088700780165798i, -0.06794898592753158 + 0.5621810734976643i }, { -0.5431519663550141 + -0.03699153701051955i, 0.04124222037611351 + 0.3467693640112932i } }, Matrix{ { -0.49827525909620074 + -0.22702493140667346i, -0.02027333912409128 + 0.013034325927097731i }, { 0.07841322196761658 + -0.05530342818309146i, 0.27996523036250076 + 0.42093805571650417i } }, Matrix{ { 0.09160460304365556 + -0.17543295530577172i, -0.06263006957664094 + -0.029821204066469802i }, { 0.04686717360744974 + -0.1156809741144427i, 0.40661904223058704 + -0.25782085654636017i } } }, { QubitIndex{ 2 } }));
+    c.addInstruction(CircuitInstruction({ Matrix({ { 0.0354715013412521 + -0.39942950113971276i, 0.10654589065497518 + -0.013316503268332598i }, { -0.18947622125026412 + -0.2750083783136793i, 0.3511940037982345 + 0.13029839869723864i } }), Matrix({ { -0.04262142167847174 + 0.07690362579143571i, 0.18719427441810327 + 0.5783101637608401i }, { -0.08927400794521836 + -0.01523009065086069i, 0.007822876151170423 + -0.0038456795614230216i } }), Matrix({ { -0.09387820397539003 + -0.09080138682185335i, 0.36228690659655444 + 0.383019245078982i }, { -0.40233295319988593 + 0.6481686947917367i, -0.042411937385148805 + 0.005000205202580681i } }), Matrix({ { 0.3210276335415151 + -0.03853045487206731i, 0.2406661017980672 + -0.331478656729914i }, { 0.08991736465019586 + -0.007314448970852944i, 0.17477695071874066 + -0.021698852275578304i } }) }, { QubitIndex{ 1 } }));
 
 
-    
     return c;
 }
 
 TEST(RandomizedIntegrationTests, 3_4_2_100_30_20) {
     auto c = randomCircuit();
+    
+    auto s = c.execute();
 
-    c.execute();
+    EXPECT_EQ(s.getReducedDensityMatrix({true, false, false}), Matrix({ { 0.9999999999999998 + 0.0i, 0.0 + 0.0i }, { 0.0 + 0.0i, 0.0 + 0.0i } }));
+
+    EXPECT_THAT(s.getReducedDensityMatrixDiagonal({true, false, false}), ElementsAreArray({ DoubleNear(0.9999999999999998, 1.0e-7), DoubleNear(0.0, 1.0e-7) }));
+
+    EXPECT_EQ(s.getReducedDensityMatrix({false, true, false}), Matrix({ { 0.290134253514216 + 0.0i, 0.11382265576708417 + 0.17418761591399362i }, { 0.11382265576708417 + -0.17418761591399362i, 0.7098657464857837 + 0.0i } }));
+
+    EXPECT_THAT(s.getReducedDensityMatrixDiagonal({false, true, false}), ElementsAreArray({ DoubleNear(0.290134253514216, 1.0e-7), DoubleNear(0.7098657464857837, 1.0e-7) }));
+
+    EXPECT_EQ(s.getReducedDensityMatrix({false, false, true}), Matrix({ { 0.9999999999999998 + 0.0i, 0.0 + 0.0i }, { 0.0 + 0.0i, 0.0 + 0.0i } }));
+
+    EXPECT_THAT(s.getReducedDensityMatrixDiagonal({false, false, true}), ElementsAreArray({ DoubleNear(0.9999999999999998, 1.0e-7), DoubleNear(0.0, 1.0e-7) }));
+
+    EXPECT_EQ(s.getReducedDensityMatrix({true, true, false}), Matrix({ { 0.290134253514216 + 0.0i, 0.0 + 0.0i, 0.11382265576708417 + 0.17418761591399362i, 0.0 + 0.0i }, { 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i }, { 0.11382265576708417 + -0.17418761591399362i, 0.0 + 0.0i, 0.7098657464857837 + 0.0i, 0.0 + 0.0i }, { 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i } }));
+
+    EXPECT_THAT(s.getReducedDensityMatrixDiagonal({true, true, false}), ElementsAreArray({ DoubleNear(0.290134253514216, 1.0e-7), DoubleNear(0.0, 1.0e-7), DoubleNear(0.7098657464857837, 1.0e-7), DoubleNear(0.0, 1.0e-7) }));
+
+    EXPECT_EQ(s.getReducedDensityMatrix({true, false, true}), Matrix({ { 0.9999999999999998 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i }, { 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i }, { 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i }, { 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i } }));
+
+    EXPECT_THAT(s.getReducedDensityMatrixDiagonal({true, false, true}), ElementsAreArray({ DoubleNear(0.9999999999999998, 1.0e-7), DoubleNear(0.0, 1.0e-7), DoubleNear(0.0, 1.0e-7), DoubleNear(0.0, 1.0e-7) }));
+
+    EXPECT_EQ(s.getReducedDensityMatrix({false, true, true}), Matrix({ { 0.290134253514216 + 0.0i, 0.11382265576708417 + 0.17418761591399362i, 0.0 + 0.0i, 0.0 + 0.0i }, { 0.11382265576708417 + -0.17418761591399362i, 0.7098657464857837 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i }, { 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i }, { 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i } }));
+
+    EXPECT_THAT(s.getReducedDensityMatrixDiagonal({false, true, true}), ElementsAreArray({ DoubleNear(0.290134253514216, 1.0e-7), DoubleNear(0.7098657464857837, 1.0e-7), DoubleNear(0.0, 1.0e-7), DoubleNear(0.0, 1.0e-7) }));
+
+
 }
 }
 
