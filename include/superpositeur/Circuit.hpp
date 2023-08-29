@@ -13,12 +13,12 @@ class Circuit {
 public:
     Circuit() = default;
 
-    void addInstruction(CircuitInstruction const &circuitInstruction) {
-        data.push_back(circuitInstruction);
+    void addInstruction(CircuitInstruction circuitInstruction) {
+        data.emplace_back(std::move(circuitInstruction));
     }
 
     void addLoop(std::vector<CircuitInstruction> block, std::uint64_t iterationCount) {
-        data.push_back(Loop{block, iterationCount});
+        data.emplace_back(Loop{std::move(block), iterationCount});
     }
 
     MixedState execute() const {

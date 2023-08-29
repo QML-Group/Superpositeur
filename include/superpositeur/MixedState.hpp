@@ -13,15 +13,26 @@
 #include "superpositeur/MatrixSparseVectorMultiplication.hpp"
 #include "superpositeur/utils/FloatComparison.hpp"
 #include "superpositeur/StrongTypes.hpp"
+#include "superpositeur/utils/blockingconcurrentqueue.hpp"
 
 namespace superpositeur {
+
+template <std::uint64_t N>
+using Q = moodycamel::BlockingConcurrentQueue<KeyValue<N>>;
+
+using Q64 = moodycamel::BlockingConcurrentQueue<KeyValue<64>;
+using Q128 = moodycamel::BlockingConcurrentQueue<KeyValue<128>;
 
 class MixedState {
 public:
     explicit MixedState() : dataVariant(SparseVector<64>{{BasisVector<64>{}, 1.}}), sizes({1}), hashes({0}) {}
 
     void reset() {
-        dataVariant = SparseVector<64>{{BasisVector<64>{}, 1.}};
+        waitAllFutures();
+        concurrentQueues.clear();
+        concurrentQueues.push_back(Q<64>());
+        std::get<Q<64>>(concurrentQueues.back()).enqueue({BasisVector<64>{}, 1.});
+        std::get<Q<64>>(concurrentQueues.back()).enqueue({BasisVector<64>{}, { NAN, NAN }});
         sizes = {1};
         hashes = {0};
     }
@@ -125,59 +136,45 @@ public:
     }
 
     void operator()(CircuitInstruction const &circuitInstruction) {
-        simplify();
+        // simplify(); // FIXME + recycle
+
+        if (circuitInstruction.getKrausOperators().size() != 1) {
+            throw std::runtime_error("Unimplemented");
+        }
+
+        assert(!concurrentQueues.empty());
+        auto& inputQueueVariant = concurrentQueues.back();
 
         auto bitWidth = circuitInstruction.getOperandsMask().bitWidth();
         if (bitWidth > currentSize()) {
-            if (bitWidth <= 128) {
-                resize<128>();
+            if (bitWidth <= 64 && std::holds_alternative<Q64>(inputQueueVariant)) {
+                concurrentQueues.emplace_back(Q64());
+                auto outputQueue = std::get<Q64>(concurrentQueues.back());
+                
+                auto future = std::async(applyCircuitInstruction, instruction, std::get<Q64>(inputQueueVariant), outputQueue);
+                futures.push_back(future);
+            } else if (bitWidth <= 128) {
+                concurrentQueues.emplace_back(Q128());
+                auto outputQueue = std::get<Q128>(concurrentQueues.back());
+
+                std::visit([&](auto& inputQueue) {
+                    auto future = std::async(applyCircuitInstruction, instruction, inputQueue, outputQueue);
+                    futures.push_back(future);
+                }, inputQueueVariant);
             } else {
                 throw std::runtime_error("Cannot handle that many qubits!");
             }
         }
-
-        std::visit([&](auto&& data) {
-            applyCircuitInstruction(circuitInstruction, data);
-        }, dataVariant);
-        
-
-        assert(isConsistent());
     }
 
-    template <std::uint64_t MaxNumberOfQubits>
-    void applyCircuitInstruction(CircuitInstruction const &circuitInstruction, SparseVector<MaxNumberOfQubits>& data) {
+    template <std::uint64_t N, M>
+    void applyCircuitInstruction(CircuitInstruction const &circuitInstruction, Q<N>& input, Q<M>& output) {
         if (!circuitInstruction.getControlQubitsMask().empty()) {
             throw std::runtime_error("Unimplemented: control qubits");
         }
 
-        SparseVector<MaxNumberOfQubits> newData;
-        newData.reserve(data.size());
-
-        Sizes newSizes;
-        newSizes.reserve(sizes.size());
-
-        hashes.clear();
-
-        auto start = data.begin();
-
-        for (auto size: sizes) {
-            auto end = std::next(start, size);
-
-            for (auto const& krausOperator: circuitInstruction.getKrausOperators()) {
-                auto sizeBefore = newData.size();
-                auto hashOfTheKeys = multiplyMatrix(krausOperator, {start, end}, circuitInstruction.getOperandsMask(), std::back_inserter(newData));
-                auto numberOfAddedElements = newData.size() - sizeBefore;
-                if (numberOfAddedElements > 0) {
-                    newSizes.push_back(numberOfAddedElements);
-                    hashes.push_back(hashOfTheKeys);
-                }
-            }
-
-            start = end;
-        }
-
-        data.swap(newData);
-        sizes.swap(newSizes);
+        auto hashOfTheKeys = multiplyMatrix(circuitInstruction.getKrausOperators()[0], input, circuitInstruction.getOperandsMask(), output);
+        (void) hashOfTheKeys;
     }
 
 private:
@@ -297,22 +294,32 @@ private:
         std::variant<Internals<64UL>, Internals<128UL>> internalsVariant;
     };
 
+    void waitAllFutures() {
+        for (auto& f: futures) {
+            f.wait();
+        }
+    }
+
 public:
     ReducedDensityMatrixIterator getReducedDensityMatrixIterator(std::vector<bool> qubits) const {
+        waitAllFutures()
+
         assert(isConsistent());
         assert(std::ranges::find_if(qubits.rbegin(), qubits.rend(), std::identity{}) - qubits.rend() < 128); // FIXME
 
-        return std::visit([&](auto&& x) {
-            return ReducedDensityMatrixIterator(x, sizes, qubits);
+        return std::visit([&](auto& data) {
+            return ReducedDensityMatrixIterator(data, sizes, qubits);
         }, dataVariant);
     }
 
     ReducedDensityMatrixDiagonalIterator getReducedDensityMatrixDiagonalIterator(std::vector<bool> qubits) const {
+        waitAllFutures()
+
         assert(isConsistent());
         assert(std::ranges::find_if(qubits.rbegin(), qubits.rend(), std::identity{}) - qubits.rend() < 128); // FIXME
 
-        return std::visit([&](auto&& x) {
-            return ReducedDensityMatrixDiagonalIterator(x, qubits);
+        return std::visit([&](auto& data) {
+            return ReducedDensityMatrixDiagonalIterator(data, qubits);
         }, dataVariant);
     }
 
@@ -388,9 +395,10 @@ private:
 
     bool isConsistent() const;
 
-    std::variant<SparseVector<64>, SparseVector<128>> dataVariant;
     Sizes sizes;
     Hashes hashes;
+    std::vector<std::variant<Q<64>, Q<128>>> concurrentQueues;
+    std::vector<std::future<void>> futures;
 };
 
 } // namespace  superpositeur
