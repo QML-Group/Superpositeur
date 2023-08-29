@@ -207,6 +207,39 @@ static PyObject *PyQuantumState_densityMatrix(PyObject *self, PyObject *args) {
     return numpyArray;
 }
 
+static PyObject *PyQuantumState_densityMatrixDiagonal(PyObject *self, PyObject *args) {
+    auto operands = parseOperands(args); // This is a tuple.
+
+    if (!operands) {
+        return nullptr;
+    }
+
+    npy_intp shape[] = { 1 << operands->size() };
+
+    PyObject* numpyArray = PyArray_ZEROS(1, shape, NPY_COMPLEX128, 0);
+    if (!numpyArray) {
+        PyErr_BadInternalCall();
+        return nullptr;
+    }
+
+    std::vector<bool> mask;
+    for (auto op: *operands) {
+        mask.resize(std::max(static_cast<std::uint64_t>(mask.size()), op.value + 1), false);
+        mask[op.value] = true;
+    }
+
+    auto iterator = ((PyQuantumState *) self)->state.getReducedDensityMatrixDiagonalIterator(mask);
+    while (auto densityMatrixDiagonalEntry = iterator.next()) {
+        auto i = std::get<0>(*densityMatrixDiagonalEntry);
+        auto v = std::get<1>(*densityMatrixDiagonalEntry);
+
+        auto* c = reinterpret_cast<std::complex<double>*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(numpyArray), i));
+        *c += v;
+    }
+
+    return numpyArray;
+}
+
 static PyMethodDef PyQuantumState_methods[] = {
     {   "apply",
         (PyCFunction)(void(*)(void)) PyQuantumState_apply,
@@ -216,6 +249,10 @@ static PyMethodDef PyQuantumState_methods[] = {
         PyQuantumState_densityMatrix,
         METH_VARARGS,
         "Return reduced density matrix" },
+    {   "densityMatrixDiagonal",
+        PyQuantumState_densityMatrixDiagonal,
+        METH_VARARGS,
+        "Return reduced density matrix diagonal" },
     {nullptr}
 };
 

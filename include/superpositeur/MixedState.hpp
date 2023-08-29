@@ -228,6 +228,50 @@ private:
         Sizes::const_iterator const sizesEnd;
     };
 
+    struct ReducedDensityMatrixDiagonalIterator {
+        using Value = std::pair<std::uint64_t, double>; // i, M[i, i]
+
+        template <std::uint64_t N>
+        ReducedDensityMatrixDiagonalIterator(SparseVector<N> const& data, std::vector<bool> mask) :
+            internalsVariant(Internals<N>{.end = data.end(), .it = data.begin(), .reductionQubits = getMask<N>(mask)}) {}
+
+        std::optional<Value> next() {
+            return std::visit([&](auto& internals) { return nextImpl(internals); }, internalsVariant);
+        }
+
+    private:
+        template <std::uint64_t N>
+        static BasisVector<N> getMask(std::vector<bool> v) {
+            BasisVector<N> mask;
+            for (std::uint64_t i = 0; i < v.size(); ++i) {
+                mask.set(i, v[i]);
+            }
+            return mask;
+        }
+
+        template <typename Internals>
+        std::optional<Value> nextImpl(Internals& internals) {
+            if (internals.it == internals.end) {
+                return std::nullopt;
+            }
+            
+            Value result = Value(internals.it->first.pext(internals.reductionQubits), std::norm(internals.it->second));
+
+            ++internals.it;
+
+            return result;
+        }
+
+        template <std::uint64_t N>
+        struct Internals {
+            typename SparseVector<N>::const_iterator end;
+            typename SparseVector<N>::const_iterator it;
+            BasisVector<N> reductionQubits;
+        };
+
+        std::variant<Internals<64UL>, Internals<128UL>> internalsVariant;
+    };
+
 public:
     ReducedDensityMatrixIterator getReducedDensityMatrixIterator(std::vector<bool> qubits) const {
         assert(isConsistent());
@@ -235,6 +279,15 @@ public:
 
         return std::visit([&](auto&& x) {
             return ReducedDensityMatrixIterator(x, sizes, qubits);
+        }, dataVariant);
+    }
+
+    ReducedDensityMatrixDiagonalIterator getReducedDensityMatrixDiagonalIterator(std::vector<bool> qubits) const {
+        assert(isConsistent());
+        assert(std::ranges::find_if(qubits.rbegin(), qubits.rend(), std::identity{}) - qubits.rend() < 128); // FIXME
+
+        return std::visit([&](auto&& x) {
+            return ReducedDensityMatrixDiagonalIterator(x, qubits);
         }, dataVariant);
     }
 
@@ -257,6 +310,25 @@ public:
             }
         }
         return m;
+    }
+
+    std::vector<double> getReducedDensityMatrixDiagonal(std::vector<bool> const& mask) {
+        auto popcount = std::ranges::count_if(mask, [](auto x) { return x; });
+
+        assert(popcount > 0 && popcount < 64);
+
+        auto reducedDensityMatrixDiagonalIterator = getReducedDensityMatrixDiagonalIterator(mask);
+
+        std::vector<double> result(1UL << popcount);
+        while (auto densityMatrixDiagonalEntry = reducedDensityMatrixDiagonalIterator.next()) {
+            auto i = std::get<0>(*densityMatrixDiagonalEntry);
+            auto v = std::get<1>(*densityMatrixDiagonalEntry);
+            result[i] += v;
+        }
+
+        assert(utils::isNull(std::reduce(result.begin(), result.end()) - 1.));
+
+        return result;
     }
 
     // Matrix getMatrixOfVectors() const {
