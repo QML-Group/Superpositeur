@@ -248,7 +248,7 @@ public:
     }
 
     template <std::size_t NewNumberOfBits>
-    BitSet<NewNumberOfBits> cast() {
+    BitSet<NewNumberOfBits> cast() const {
         BitSet<NewNumberOfBits> result;
         for (std::uint64_t i = 0; i < std::min(result.STORAGE_SIZE, STORAGE_SIZE); ++i) {
             result.data[i] = data[i];
