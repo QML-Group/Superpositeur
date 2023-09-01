@@ -51,9 +51,7 @@ public:
 
         KeyValue<MaxNumberOfQubits> result = { topIt->resultKet, topIt->iterator->second * topIt->coeff };
 
-        do {
-            ++topIt->iterator;
-        } while (topIt->iterator != end && (topIt->iterator->first & operands) != topIt->input);
+        topIt->iterator = std::find_if(++topIt->iterator, end, [&](auto kv) { return (kv.first & operands) == topIt->input; });
 
         if (topIt->iterator != end) [[likely]] {
             topIt->resultKet = (topIt->iterator->first & (~operands)) | topIt->output;
