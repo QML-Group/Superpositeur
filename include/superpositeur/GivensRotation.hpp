@@ -10,7 +10,7 @@
 namespace superpositeur {
 
 template <std::uint64_t MaxNumberOfQubits = 64>
-inline void applyGivensRotation(std::span<KeyValue<MaxNumberOfQubits>> firstLine, std::uint64_t& firstHash, std::span<KeyValue<MaxNumberOfQubits>> secondLine, std::uint64_t& secondHash) {
+inline void applyGivensRotation(std::span<KeyValue<MaxNumberOfQubits>>& firstLine, std::uint64_t& firstHash, std::span<KeyValue<MaxNumberOfQubits>>& secondLine, std::uint64_t& secondHash) {
     assert(!firstLine.empty());
     assert(!secondLine.empty());
 

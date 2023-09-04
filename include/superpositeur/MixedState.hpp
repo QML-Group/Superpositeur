@@ -6,7 +6,6 @@
 #include <ranges>
 #include <algorithm>
 #include <variant>
-#include <thread>
 #include "superpositeur/CircuitInstruction.hpp"
 #include "superpositeur/Common.hpp"
 #include "superpositeur/GivensRotation.hpp"
@@ -86,40 +85,13 @@ public:
                         if (hashes[index1] == hashes[index2]) {
                             keepGoing = true;
                             applyGivensRotation<MaxNumberOfQubits>(lines[index1], hashes[index1], lines[index2], hashes[index2]);
-                            break;
                         }
                     }
                 }
             }
         };
 
-        static constexpr std::uint64_t LINES_PER_THREAD = 1000;
-        static constexpr std::uint64_t MAX_THREADS = 16;
-        std::uint64_t const initial_num_threads = std::min(MAX_THREADS, lines.size() / LINES_PER_THREAD + 1);
-
-        std::array<std::thread, MAX_THREADS> threads;
-
-        auto doWithThreads = [&](std::uint64_t n) {
-            assert(n <= MAX_THREADS);
-
-            std::uint64_t start = 0;
-            std::uint64_t const step = lines.size() / n;
-            for (std::uint64_t i = 0; i < n; ++i) {
-                std::uint64_t end = std::min(lines.size(), start + step);
-                threads[i] = std::thread(partial, start, end);
-                start = end;
-            }
-
-            for (std::uint64_t i = 0; i < n; ++i) {
-                threads[i].join(); // FIXME: scheduling could be better, as well as partitioning?
-            }
-        };
-        
-        auto num_threads = initial_num_threads;
-        while (num_threads >= 2) {
-            doWithThreads(num_threads);
-            num_threads >>= 1;
-        }
+        // TODO: Some multithreading here.
 
         partial(0, lines.size());
     }
