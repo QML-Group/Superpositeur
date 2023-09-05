@@ -2,6 +2,7 @@
 
 #include <complex>
 #include <vector>
+#include <deque>
 
 #include "superpositeur/utils/BitSet.hpp"
 #include "superpositeur/Matrix.hpp"
@@ -15,7 +16,7 @@ template <std::uint64_t MaxNumberOfQubits>
 using KeyValue = std::pair<BasisVector<MaxNumberOfQubits>, std::complex<double>>; // FIXME: Maybe a struct?
 
 template <std::uint64_t MaxNumberOfQubits>
-using SparseVector = std::vector<KeyValue<MaxNumberOfQubits>>; // Association list.
+using SparseVector = std::deque<KeyValue<MaxNumberOfQubits>>; // Association list.
 
 using Sizes = std::vector<std::uint64_t>;
 using Hashes = std::vector<std::uint64_t>;

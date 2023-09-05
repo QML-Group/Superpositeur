@@ -7,7 +7,7 @@ class MatrixSparseVectorMultiplicationTest : public ::testing::Test {
 public:
     using BV = BasisVector<64>;
 
-    void check1Q(SparseVector<64> const& inputState, Matrix const& matrix, SparseVector<64> const& expectedState, QubitIndex operand = QubitIndex{0}) {
+    void check1Q(SparseVector<64> &inputState, Matrix const& matrix, SparseVector<64> const& expectedState, QubitIndex operand = QubitIndex{0}) {
         // Input should be sorted.
 
         assert(matrix.getNumberOfRows() == 2);
@@ -18,7 +18,7 @@ public:
         CircuitInstruction::Mask operands;
         operands.set(operand.value);
 
-        multiplyMatrix(matrix, {inputState.begin(), inputState.end()}, operands, std::back_inserter(result));
+        multiplyMatrix<EraseInput::No>(matrix, inputState, inputState.end(), operands, std::back_inserter(result));
 
         std::stringstream resultString;
         for (auto const& kv: result) {
@@ -155,7 +155,7 @@ TEST_F(MatrixSparseVectorMultiplicationTest, FourByFour) {
     operands.set(0);
     operands.set(1);
 
-    multiplyMatrix(m, {input.begin(), input.end()}, operands, std::back_inserter(result));
+    multiplyMatrix<EraseInput::No>(m, input, input.end(), operands, std::back_inserter(result));
 
     
     SparseVector<64> expected = SparseVector<64>{{BV("00"), 20}, {BV("01"), 44}, {BV("10"), 68}, {BV("11"), 92}};
@@ -183,11 +183,11 @@ TEST_F(MatrixSparseVectorMultiplicationTest, BellPair) {
 
     SparseVector<64> intermediateResult;
 
-    multiplyMatrix(h, {input.begin(), input.end()}, hOperands, std::back_inserter(intermediateResult));
+    multiplyMatrix<EraseInput::No>(h, input, input.end(), hOperands, std::back_inserter(intermediateResult));
     
     SparseVector<64> result;
 
-    multiplyMatrix(cnot, {intermediateResult.begin(), intermediateResult.end()}, cnotOperands, std::back_inserter(result));
+    multiplyMatrix<EraseInput::No>(cnot, intermediateResult, intermediateResult.end(), cnotOperands, std::back_inserter(result));
 
     SparseVector<64> expected = SparseVector<64>{{BV("00"), 1 / std::sqrt(2)}, {BV("11"), 1 / std::sqrt(2)}};
 

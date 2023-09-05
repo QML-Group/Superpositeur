@@ -16,9 +16,10 @@ TEST_F(MixedStateSimplifierTest, ApplyGivensRotation) {
     std::uint64_t hashA = 0xDEADBEEF;
     std::uint64_t hashB = 0xDEADBEEF;
 
-    std::span<KeyValue<64>> firstLine{a.begin(), a.end()};
-    std::span<KeyValue<64>> secondLine{b.begin(), b.end()};
-    applyGivensRotation(firstLine, hashA, secondLine, hashB);
+    Line<64> lineA = {a.begin(), a.end()};
+    Line<64> lineB = {b.begin(), b.end()};
+
+    applyGivensRotation(lineA, hashA, lineB, hashB);
 
     EXPECT_EQ(a[0].first, BV(0));
     EXPECT_EQ(a[0].second, 0.);

@@ -56,10 +56,13 @@ public:
     }
 
 private:
+    template <std::uint64_t MaxNumberOfQubits>
+    using Lines = std::vector<std::pair<typename SparseVector<MaxNumberOfQubits>::iterator, typename SparseVector<MaxNumberOfQubits>::iterator>>;
+
     // FIXME: use std::dequeue, no needs for "lines" to be local var in simplify
     template <std::uint64_t MaxNumberOfQubits>
-    void insertOrApply(std::vector<std::span<KeyValue<MaxNumberOfQubits>>>& lines, std::unordered_map<std::uint64_t, std::uint64_t>& hashToIndex, std::uint64_t index1) {
-        if (lines[index1].empty()) {
+    void insertOrApply(Lines<MaxNumberOfQubits>& lines, std::unordered_map<std::uint64_t, std::uint64_t>& hashToIndex, std::uint64_t index1) {
+        if (lines[index1].first == lines[index1].second) {
             return;
         }
 
@@ -78,20 +81,20 @@ private:
         applyGivensRotation<MaxNumberOfQubits>(lines[index1], hash1, lines[index2], hash2);
 
         if (hash2 == it->first) [[likely]] {
-            insertOrApply(lines, hashToIndex, index1);
+            insertOrApply<MaxNumberOfQubits>(lines, hashToIndex, index1);
             return;
         }
 
         hashToIndex.erase(it);
-        insertOrApply(lines, hashToIndex, index1);
-        insertOrApply(lines, hashToIndex, index2);
+        insertOrApply<MaxNumberOfQubits>(lines, hashToIndex, index1);
+        insertOrApply<MaxNumberOfQubits>(lines, hashToIndex, index2);
     }
 
 public:
 
     template <std::uint64_t MaxNumberOfQubits>
     void simplifyImpl(SparseVector<MaxNumberOfQubits> &data) {
-        std::vector<std::span<KeyValue<MaxNumberOfQubits>>> lines;
+        Lines<MaxNumberOfQubits> lines;
         lines.reserve(sizes.size());
     
         auto it = data.begin();
@@ -106,18 +109,17 @@ public:
         std::unordered_map<std::uint64_t, std::uint64_t> hashToIndex;
 
         for (std::uint64_t i = 0; i < hashes.size(); ++i) {
-            insertOrApply(lines, hashToIndex, {i});
+            insertOrApply<MaxNumberOfQubits>(lines, hashToIndex, i);
         }
 
         SparseVector<MaxNumberOfQubits> newData;
-        newData.reserve(data.size());
         sizes.clear();
         hashes.clear();
         for (auto const& [hash, index]: hashToIndex) {
             auto const& line = lines[index];
-            sizes.push_back(line.size());
+            sizes.push_back(std::distance(line.first, line.second));
             hashes.push_back(hash);
-            newData.insert(newData.end(), line.begin(), line.end());
+            newData.insert(newData.end(), line.first, line.second);
         }
 
         data.swap(newData);
@@ -150,29 +152,27 @@ public:
         }
 
         SparseVector<MaxNumberOfQubits> newData;
-        newData.reserve(data.size());
 
         Sizes newSizes;
         newSizes.reserve(sizes.size());
 
         hashes.clear();
 
-        auto start = data.begin();
-
         for (auto size: sizes) {
-            auto end = std::next(start, size);
+            auto end = std::next(data.begin(), size);
 
-            for (auto const& krausOperator: circuitInstruction.getKrausOperators()) {
+            auto const& ks = circuitInstruction.getKrausOperators();
+            for (std::uint64_t kIndex = 0; kIndex < ks.size(); ++kIndex) {
                 auto sizeBefore = newData.size();
-                auto hashOfTheKeys = multiplyMatrix(krausOperator, {start, end}, circuitInstruction.getOperandsMask(), std::back_inserter(newData));
+                auto hashOfTheKeys = (kIndex == ks.size() - 1) ? multiplyMatrix<EraseInput::Yes>(ks[kIndex], data, end, circuitInstruction.getOperandsMask(), std::back_inserter(newData))
+                                                             : multiplyMatrix<EraseInput::No>(ks[kIndex], data, end, circuitInstruction.getOperandsMask(), std::back_inserter(newData));
+
                 auto numberOfAddedElements = newData.size() - sizeBefore;
                 if (numberOfAddedElements > 0) {
                     newSizes.push_back(numberOfAddedElements);
                     hashes.push_back(hashOfTheKeys);
                 }
             }
-
-            start = end;
         }
 
         data.swap(newData);

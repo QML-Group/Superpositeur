@@ -9,56 +9,29 @@
 
 namespace superpositeur {
 
+template <std::uint64_t MaxNumberOfQubits>
+using Line = std::pair<typename SparseVector<MaxNumberOfQubits>::iterator, typename SparseVector<MaxNumberOfQubits>::iterator>;
+
 template <std::uint64_t MaxNumberOfQubits = 64>
-inline void applyGivensRotation(std::span<KeyValue<MaxNumberOfQubits>>& firstLine, std::uint64_t& firstHash, std::span<KeyValue<MaxNumberOfQubits>>& secondLine, std::uint64_t& secondHash) {
-    assert(!firstLine.empty());
-    assert(!secondLine.empty());
+inline void applyGivensRotation(Line<MaxNumberOfQubits>& firstLine, std::uint64_t& firstHash, Line<MaxNumberOfQubits>& secondLine, std::uint64_t& secondHash) {
+    assert(firstLine.first != firstLine.second);
+    assert(secondLine.first != secondLine.second);
 
     assert(firstHash == secondHash);
 
-    bool foundNonZeroEntry = false;
+    auto firstIt = firstLine.first;
+    auto secondIt = secondLine.first;
 
-    std::complex<double> c = 0;
-    std::complex<double> s = 0;
+    auto const& a = firstIt->second;
+    auto const& b = secondIt->second;
+    assert(std::hypot(std::abs(a), std::abs(b)) > config::ATOL);
 
-    auto firstIt = firstLine.begin();
-    auto secondIt = secondLine.begin();
-    while (firstIt != firstLine.end()) {
-        if (utils::isNull(firstIt->second)) [[unlikely]] {
-            ++firstIt;
-            if (!foundNonZeroEntry) {
-                firstLine = firstLine.subspan(1);
-            }
-            continue;
-        }
+    double const invr = 1 / std::hypot(std::abs(a), std::abs(b));
 
-        assert(secondIt != secondLine.end());
+    auto c = b * invr;
+    auto s = a * invr;
 
-        if (utils::isNull(secondIt->second)) [[unlikely]] {
-            ++secondIt;
-            if (!foundNonZeroEntry) {
-                secondLine = secondLine.subspan(1);
-            }
-            continue;
-        }
-
-        if (firstIt->first != secondIt->first) [[unlikely]] {
-            throw std::runtime_error("Congrats, you found a hash collision");
-        }
-
-        if (!foundNonZeroEntry) [[unlikely]] {
-            auto const& a = firstIt->second;
-            auto const& b = secondIt->second;
-            assert(std::hypot(std::abs(a), std::abs(b)) > config::ATOL);
-
-            double const invr = 1 / std::hypot(std::abs(a), std::abs(b));
-
-            c = b * invr;
-            s = a * invr;
-
-            foundNonZeroEntry = true;
-        }
-
+    while (true) {
         auto const oldFirst = firstIt->second;
         firstIt->second = c * oldFirst - s * secondIt->second;
         secondIt->second = std::conj(s) * oldFirst + std::conj(c) * secondIt->second;
@@ -71,8 +44,29 @@ inline void applyGivensRotation(std::span<KeyValue<MaxNumberOfQubits>>& firstLin
             secondHash -= secondIt->first.hash();
         }
 
-        ++firstIt;
-        ++secondIt;
+        do {
+            ++firstIt;
+        } while (firstIt != firstLine.second && utils::isNull(firstIt->second));
+
+        do {
+            ++secondIt;
+        } while (secondIt != secondLine.second && utils::isNull(secondIt->second));
+
+        if (firstIt == firstLine.second && secondIt == secondLine.second) {
+            break;
+        }
+
+        if (firstIt == firstLine.second || secondIt == secondLine.second || firstIt->first != secondIt->first) [[unlikely]] {
+            throw std::runtime_error("Congrats, you found a hash collision");
+        }
+    }
+
+    while (firstLine.first < firstLine.second && utils::isNull(firstLine.first->second)) {
+        ++firstLine.first;
+    }
+
+    while (secondLine.first < secondLine.second && utils::isNull(secondLine.first->second)) {
+        ++secondLine.first;
     }
 }
 
