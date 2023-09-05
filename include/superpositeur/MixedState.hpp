@@ -6,6 +6,8 @@
 #include <ranges>
 #include <algorithm>
 #include <variant>
+#include <functional>
+#include <unordered_map>
 #include "superpositeur/CircuitInstruction.hpp"
 #include "superpositeur/Common.hpp"
 #include "superpositeur/GivensRotation.hpp"
@@ -67,33 +69,49 @@ public:
             it = next;
         }
 
-        auto partial = [&] (std::uint64_t start, std::uint64_t end) {
-            bool keepGoing = true;
-            while (keepGoing) {
-                keepGoing = false;
+        std::unordered_map<std::uint64_t, std::uint64_t> hashToIndex;
 
-                for (std::uint64_t index1 = start; index1 < end; ++index1) {
-                    if (lines[index1].empty()) [[unlikely]] {
-                        continue;
-                    }
-
-                    for (std::uint64_t index2 = index1 + 1; index2 < end; ++index2) {
-                        if (lines[index2].empty()) [[unlikely]] {
-                            continue;
-                        }
-
-                        if (hashes[index1] == hashes[index2]) {
-                            keepGoing = true;
-                            applyGivensRotation<MaxNumberOfQubits>(lines[index1], hashes[index1], lines[index2], hashes[index2]);
-                        }
-                    }
-                }
+        std::function<void(std::uint64_t)> const insertOrApply = [&](std::uint64_t index1) {
+            if (lines[index1].empty()) {
+                return;
             }
+
+            auto& hash1 = hashes[index1];
+
+            auto [it, inserted] = hashToIndex.insert(std::make_pair(hash1, index1));
+            if (inserted) {
+                return;
+            }
+
+            auto const index2 = it->second;
+            auto& hash2 = hashes[index2];
+            assert(hash2 == it->first);
+            assert(hash1 == hash2);
+
+            hashToIndex.erase(it);
+
+            applyGivensRotation<MaxNumberOfQubits>(lines[index1], hash1, lines[index2], hash2);
+
+            insertOrApply(index1);
+            insertOrApply(index2);
         };
 
-        // TODO: Some multithreading here.
+        for (std::uint64_t i = 0; i < hashes.size(); ++i) {
+            insertOrApply(i);
+        }
 
-        partial(0, lines.size());
+        SparseVector<MaxNumberOfQubits> newData;
+        newData.reserve(data.size());
+        sizes.clear();
+        hashes.clear();
+        for (auto const& [hash, index]: hashToIndex) {
+            auto const& line = lines[index];
+            sizes.push_back(line.size());
+            hashes.push_back(hash);
+            newData.insert(newData.end(), line.begin(), line.end());
+        }
+
+        data.swap(newData);
     }
 
     void operator()(CircuitInstruction const &circuitInstruction) {

@@ -24,8 +24,6 @@ inline void applyGivensRotation(std::span<KeyValue<MaxNumberOfQubits>>& firstLin
     auto firstIt = firstLine.begin();
     auto secondIt = secondLine.begin();
     while (firstIt != firstLine.end()) {
-        assert(secondIt != secondLine.end());
-        
         if (utils::isNull(firstIt->second)) [[unlikely]] {
             ++firstIt;
             if (!foundNonZeroEntry) {
