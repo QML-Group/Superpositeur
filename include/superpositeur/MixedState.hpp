@@ -55,6 +55,40 @@ public:
         }, dataVariant);
     }
 
+private:
+    // FIXME: use std::dequeue, no needs for "lines" to be local var in simplify
+    template <std::uint64_t MaxNumberOfQubits>
+    void insertOrApply(std::vector<std::span<KeyValue<MaxNumberOfQubits>>>& lines, std::unordered_map<std::uint64_t, std::uint64_t>& hashToIndex, std::uint64_t index1) {
+        if (lines[index1].empty()) {
+            return;
+        }
+
+        auto& hash1 = hashes[index1];
+
+        auto [it, inserted] = hashToIndex.insert(std::make_pair(hash1, index1));
+        if (inserted) {
+            return;
+        }
+
+        auto const index2 = it->second;
+        auto& hash2 = hashes[index2];
+        assert(hash2 == it->first);
+        assert(hash1 == hash2);
+
+        applyGivensRotation<MaxNumberOfQubits>(lines[index1], hash1, lines[index2], hash2);
+
+        if (hash2 == it->first) [[likely]] {
+            insertOrApply(lines, hashToIndex, index1);
+            return;
+        }
+
+        hashToIndex.erase(it);
+        insertOrApply(lines, hashToIndex, index1);
+        insertOrApply(lines, hashToIndex, index2);
+    }
+
+public:
+
     template <std::uint64_t MaxNumberOfQubits>
     void simplifyImpl(SparseVector<MaxNumberOfQubits> &data) {
         std::vector<std::span<KeyValue<MaxNumberOfQubits>>> lines;
@@ -71,33 +105,8 @@ public:
 
         std::unordered_map<std::uint64_t, std::uint64_t> hashToIndex;
 
-        std::function<void(std::uint64_t)> const insertOrApply = [&](std::uint64_t index1) {
-            if (lines[index1].empty()) {
-                return;
-            }
-
-            auto& hash1 = hashes[index1];
-
-            auto [it, inserted] = hashToIndex.insert(std::make_pair(hash1, index1));
-            if (inserted) {
-                return;
-            }
-
-            auto const index2 = it->second;
-            auto& hash2 = hashes[index2];
-            assert(hash2 == it->first);
-            assert(hash1 == hash2);
-
-            hashToIndex.erase(it);
-
-            applyGivensRotation<MaxNumberOfQubits>(lines[index1], hash1, lines[index2], hash2);
-
-            insertOrApply(index1);
-            insertOrApply(index2);
-        };
-
         for (std::uint64_t i = 0; i < hashes.size(); ++i) {
-            insertOrApply(i);
+            insertOrApply(lines, hashToIndex, {i});
         }
 
         SparseVector<MaxNumberOfQubits> newData;
