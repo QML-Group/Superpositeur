@@ -8,6 +8,7 @@
 #include <variant>
 #include <functional>
 #include <unordered_map>
+#include <execution>
 #include "superpositeur/CircuitInstruction.hpp"
 #include "superpositeur/Common.hpp"
 #include "superpositeur/GivensRotation.hpp"
@@ -149,34 +150,75 @@ public:
             throw std::runtime_error("Unimplemented: control qubits");
         }
 
-        SparseVector<MaxNumberOfQubits> newData;
-        newData.reserve(data.size());
+        if (circuitInstruction.getKrausOperators().size() > 1) {
+            throw std::runtime_error("Unimplemented: Kraus");
+        }
 
-        Sizes newSizes;
-        newSizes.reserve(sizes.size());
+        auto const matrix = circuitInstruction.getKrausOperators()[0];
 
-        hashes.clear();
+        auto ops = circuitInstruction.getOperandsMask().cast<64>(); // FIXME
+        auto nOps = circuitInstruction.getOperandsMask().popcount();
 
-        auto start = data.begin();
+        if (nOps > 2) {
+            throw std::runtime_error("Unimplemented: 3+ ops");
+        }
+        
+        auto negOps = ~ops;
 
-        for (auto size: sizes) {
-            auto end = std::next(start, size);
+        std::sort(std::execution::par, data.begin(), data.end(), [negOps](auto const left, auto const right) {
+            return left.ket.pext(negOps) < right.ket.pext(negOps);
+        });
 
-            for (auto const& krausOperator: circuitInstruction.getKrausOperators()) {
-                auto sizeBefore = newData.size();
-                auto hashOfTheKeys = multiplyMatrix(krausOperator, {start, end}, circuitInstruction.getOperandsMask(), std::back_inserter(newData));
-                auto numberOfAddedElements = newData.size() - sizeBefore;
-                if (numberOfAddedElements > 0) {
-                    newSizes.push_back(numberOfAddedElements);
-                    hashes.push_back(hashOfTheKeys);
+        SparseVector<MaxNumberOfQubits> d;
+        auto it = data.begin();
+        auto max = data.end();
+        while (it != max) {
+            auto firstKey = it->ket;
+            auto rest = firstKey.pext(negOps);
+            auto end = std::find_if(it, max, [negOps, rest](auto x) { return x.ket.pext(negOps) != rest; });
+
+            assert(d.empty());
+            d.insert(d.begin(), it, end);
+
+            bool insert = false;
+
+            for (std::uint64_t row = 0; row < matrix.getNumberOfRows(); ++row) {
+                std::complex<double> acc = 0;
+                for (auto const& [k, v]: d) {
+                    acc += v * matrix.get(row, k.pext(ops));
+                }
+
+                if (utils::isNotNull(acc)) {
+                    if (insert) {
+                        if (data.size() < data.capacity()) [[likely]] {
+                            data.emplace_back(firstKey.pdep(row, ops), acc);
+                        } else {
+                            auto itDist = std::distance(data.begin(), it);
+                            auto endDist = std::distance(data.begin(), end);
+                            auto maxDist = std::distance(data.begin(), max);
+                            data.emplace_back(firstKey.pdep(row, ops), acc);
+                            it = std::next(data.begin(), itDist);
+                            end = std::next(data.begin(), endDist);
+                            max = std::next(data.begin(), maxDist);
+                        }
+                    } else {
+                        *it = { firstKey.pdep(row, ops), acc };
+                        ++it;
+                        if (it == end) {
+                            insert = true;
+                        }
+                    }
                 }
             }
 
-            start = end;
+            if (!insert) {
+                it = data.erase(it, end);
+            }
+
+            d.clear();
         }
 
-        data.swap(newData);
-        sizes.swap(newSizes);
+        sizes[0] = data.size(); // FIXME: to pass the assert
     }
 
 private:

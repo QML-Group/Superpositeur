@@ -43,6 +43,15 @@ target_include_directories(superpositeur
     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/"
 )
 
+FetchContent_Declare(
+  tbb-project
+GIT_REPOSITORY https://github.com/oneapi-src/oneTBB.git
+GIT_TAG be2fb93722eb973a495c1d5b3661d8768d58d51b
+)
+FetchContent_MakeAvailable(tbb-project)
+
+target_link_libraries(superpositeur PUBLIC tbb)
+
 #=============================================================================#
 # Superpositeur CLI executable                                                #
 #=============================================================================#
