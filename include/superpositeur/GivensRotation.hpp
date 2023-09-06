@@ -42,7 +42,7 @@ inline void applyGivensRotation(std::span<KeyValue<MaxNumberOfQubits>>& firstLin
             continue;
         }
 
-        if (firstIt->key != secondIt->key) [[unlikely]] {
+        if (firstIt->ket != secondIt->ket) [[unlikely]] {
             throw std::runtime_error("Congrats, you found a hash collision");
         }
 
@@ -64,11 +64,11 @@ inline void applyGivensRotation(std::span<KeyValue<MaxNumberOfQubits>>& firstLin
         secondIt->amplitude = std::conj(s) * oldFirst + std::conj(c) * secondIt->amplitude;
 
         if (utils::isNull(firstIt->amplitude)) [[unlikely]] {
-            firstHash -= firstIt->key.hash();
+            firstHash -= firstIt->ket.hash();
         }
 
         if (utils::isNull(secondIt->amplitude)) [[unlikely]] {
-            secondHash -= secondIt->key.hash();
+            secondHash -= secondIt->ket.hash();
         }
 
         ++firstIt;

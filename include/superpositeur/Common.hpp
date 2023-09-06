@@ -15,7 +15,7 @@ template <std::uint64_t MaxNumberOfQubits>
 struct KeyValue {
     static constexpr std::uint64_t MAX_NUMBER_OF_BITS = MaxNumberOfQubits;
 
-    BasisVector<MaxNumberOfQubits> key;
+    BasisVector<MaxNumberOfQubits> ket;
     std::complex<double> amplitude;
 };
 

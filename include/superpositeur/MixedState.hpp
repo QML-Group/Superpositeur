@@ -221,14 +221,14 @@ private:
             
             assert(sizesIterator != sizesEnd && *sizesIterator > 0);
             assert(internals.it2 != internals.end);
-            assert((internals.it1->key & (~internals.reductionQubits)) == (internals.it2->key & (~internals.reductionQubits)));
+            assert((internals.it1->ket & (~internals.reductionQubits)) == (internals.it2->ket & (~internals.reductionQubits)));
 
-            Value result = Value(internals.it1->key.pext(internals.reductionQubits), internals.it2->key.pext(internals.reductionQubits), internals.it1->amplitude * std::conj(internals.it2->amplitude));
+            Value result = Value(internals.it1->ket.pext(internals.reductionQubits), internals.it2->ket.pext(internals.reductionQubits), internals.it1->amplitude * std::conj(internals.it2->amplitude));
 
-            auto current = internals.it1->key & (~internals.reductionQubits);
+            auto current = internals.it1->ket & (~internals.reductionQubits);
             do {
                 ++internals.it2;
-            } while (internals.it2 != internals.end && ((internals.it2->key & (~internals.reductionQubits)) != current));
+            } while (internals.it2 != internals.end && ((internals.it2->ket & (~internals.reductionQubits)) != current));
 
             if (internals.it2 == internals.end) {
                 ++internals.it1;
@@ -279,7 +279,7 @@ private:
                 return std::nullopt;
             }
             
-            Value result = Value(internals.it->key.pext(internals.reductionQubits), std::norm(internals.it->amplitude));
+            Value result = Value(internals.it->ket.pext(internals.reductionQubits), std::norm(internals.it->amplitude));
 
             ++internals.it;
 

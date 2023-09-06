@@ -24,7 +24,7 @@ public:
             for (std::uint64_t j = 0; j < matrix.getNumberOfCols(); ++j) {
                 if (utils::isNotNull(matrix.get(i, j))) {
                     auto it = begin;
-                    while (it != end && it->key.pext(operands) != j) {
+                    while (it != end && it->ket.pext(operands) != j) {
                         ++it;
                     }
 
@@ -33,7 +33,7 @@ public:
                             .input = BasisVector<MaxNumberOfQubits>().pdep(j, operands),
                             .output = BasisVector<MaxNumberOfQubits>().pdep(i, operands),
                             .coeff = matrix.get(i, j),
-                            .resultKet = it->key.pdep(i, operands),
+                            .resultKet = it->ket.pdep(i, operands),
                             .iterator = it}
                         );
                     }
@@ -51,10 +51,10 @@ public:
 
         KeyValue<MaxNumberOfQubits> result = { topIt->resultKet, topIt->iterator->amplitude * topIt->coeff };
 
-        topIt->iterator = std::find_if(++topIt->iterator, end, [&](auto kv) { return (kv.key & operands) == topIt->input; });
+        topIt->iterator = std::find_if(++topIt->iterator, end, [&](auto kv) { return (kv.ket & operands) == topIt->input; });
 
         if (topIt->iterator != end) [[likely]] {
-            topIt->resultKet = (topIt->iterator->key & (~operands)) | topIt->output;
+            topIt->resultKet = (topIt->iterator->ket & (~operands)) | topIt->output;
         } else {
             iterators.erase(topIt);
         }
@@ -93,12 +93,12 @@ inline std::uint64_t multiplyMatrix(Matrix const& matrix, InputSpan<MaxNumberOfQ
 
     auto kv = iterators.next();
     while (!std::isnan(kv.amplitude.real())) {
-        if (kv.key != accumulator.key) {
-            assert(kv.key > accumulator.key);
+        if (kv.ket != accumulator.ket) {
+            assert(kv.ket > accumulator.ket);
 
             if (utils::isNotNull(accumulator.amplitude)) [[likely]] {
                 inserter = accumulator;
-                hashOfTheKeys += accumulator.key.hash();
+                hashOfTheKeys += accumulator.ket.hash();
             }
             accumulator = kv;
         } else {
@@ -110,7 +110,7 @@ inline std::uint64_t multiplyMatrix(Matrix const& matrix, InputSpan<MaxNumberOfQ
 
     if (utils::isNotNull(accumulator.amplitude)) {
         inserter = accumulator;
-        hashOfTheKeys += accumulator.key.hash();
+        hashOfTheKeys += accumulator.ket.hash();
     }
 
     return hashOfTheKeys;
