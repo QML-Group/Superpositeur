@@ -22,10 +22,10 @@ public:
 
         std::stringstream resultString;
         for (auto const& kv: result) {
-            resultString << "\n" << kv.first.toString() << "  ->   " << kv.second;
+            resultString << "\n" << kv.key.toString() << "  ->   " << kv.amplitude;
         }
 
-        EXPECT_TRUE(std::ranges::equal(expectedState, result, [](auto left, auto right) { return left.first == right.first && utils::isNull(left.second - right.second); }));
+        EXPECT_TRUE(std::ranges::equal(expectedState, result, [](auto left, auto right) { return left.key == right.key && utils::isNull(left.amplitude - right.amplitude); }));
     }
 };
 
@@ -160,7 +160,7 @@ TEST_F(MatrixSparseVectorMultiplicationTest, FourByFour) {
     
     SparseVector<64> expected = SparseVector<64>{{BV("00"), 20}, {BV("01"), 44}, {BV("10"), 68}, {BV("11"), 92}};
 
-    EXPECT_TRUE(std::ranges::equal(expected, result, [](auto left, auto right) { return left.first == right.first && utils::isNull(left.second - right.second); }));
+    EXPECT_TRUE(std::ranges::equal(expected, result, [](auto left, auto right) { return left.key == right.key && utils::isNull(left.amplitude - right.amplitude); }));
 }
 
 TEST_F(MatrixSparseVectorMultiplicationTest, BellPair) {
@@ -191,7 +191,7 @@ TEST_F(MatrixSparseVectorMultiplicationTest, BellPair) {
 
     SparseVector<64> expected = SparseVector<64>{{BV("00"), 1 / std::sqrt(2)}, {BV("11"), 1 / std::sqrt(2)}};
 
-    EXPECT_TRUE(std::ranges::equal(expected, result, [](auto left, auto right) { return left.first == right.first && utils::isNull(left.second - right.second); }));
+    EXPECT_TRUE(std::ranges::equal(expected, result, [](auto left, auto right) { return left.key == right.key && utils::isNull(left.amplitude - right.amplitude); }));
 }
 
 }

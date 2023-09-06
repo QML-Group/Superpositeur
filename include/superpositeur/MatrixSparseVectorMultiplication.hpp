@@ -24,7 +24,7 @@ public:
             for (std::uint64_t j = 0; j < matrix.getNumberOfCols(); ++j) {
                 if (utils::isNotNull(matrix.get(i, j))) {
                     auto it = begin;
-                    while (it != end && it->first.pext(operands) != j) {
+                    while (it != end && it->key.pext(operands) != j) {
                         ++it;
                     }
 
@@ -33,7 +33,7 @@ public:
                             .input = BasisVector<MaxNumberOfQubits>().pdep(j, operands),
                             .output = BasisVector<MaxNumberOfQubits>().pdep(i, operands),
                             .coeff = matrix.get(i, j),
-                            .resultKet = it->first.pdep(i, operands),
+                            .resultKet = it->key.pdep(i, operands),
                             .iterator = it}
                         );
                     }
@@ -49,12 +49,12 @@ public:
 
         auto topIt = std::ranges::min_element(iterators, {}, &Iterator::resultKet);
 
-        KeyValue<MaxNumberOfQubits> result = { topIt->resultKet, topIt->iterator->second * topIt->coeff };
+        KeyValue<MaxNumberOfQubits> result = { topIt->resultKet, topIt->iterator->amplitude * topIt->coeff };
 
-        topIt->iterator = std::find_if(++topIt->iterator, end, [&](auto kv) { return (kv.first & operands) == topIt->input; });
+        topIt->iterator = std::find_if(++topIt->iterator, end, [&](auto kv) { return (kv.key & operands) == topIt->input; });
 
         if (topIt->iterator != end) [[likely]] {
-            topIt->resultKet = (topIt->iterator->first & (~operands)) | topIt->output;
+            topIt->resultKet = (topIt->iterator->key & (~operands)) | topIt->output;
         } else {
             iterators.erase(topIt);
         }
@@ -92,25 +92,25 @@ inline std::uint64_t multiplyMatrix(Matrix const& matrix, InputSpan<MaxNumberOfQ
     KeyValue<MaxNumberOfQubits> accumulator = { BasisVector<MaxNumberOfQubits>(), 0.};
 
     auto kv = iterators.next();
-    while (!std::isnan(kv.second.real())) {
-        if (kv.first != accumulator.first) {
-            assert(kv.first > accumulator.first);
+    while (!std::isnan(kv.amplitude.real())) {
+        if (kv.key != accumulator.key) {
+            assert(kv.key > accumulator.key);
 
-            if (utils::isNotNull(accumulator.second)) [[likely]] {
+            if (utils::isNotNull(accumulator.amplitude)) [[likely]] {
                 inserter = accumulator;
-                hashOfTheKeys += accumulator.first.hash();
+                hashOfTheKeys += accumulator.key.hash();
             }
             accumulator = kv;
         } else {
-            accumulator.second += kv.second;
+            accumulator.amplitude += kv.amplitude;
         }
 
         kv = iterators.next();
     }
 
-    if (utils::isNotNull(accumulator.second)) {
+    if (utils::isNotNull(accumulator.amplitude)) {
         inserter = accumulator;
-        hashOfTheKeys += accumulator.first.hash();
+        hashOfTheKeys += accumulator.key.hash();
     }
 
     return hashOfTheKeys;

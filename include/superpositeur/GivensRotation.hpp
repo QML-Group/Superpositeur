@@ -24,7 +24,7 @@ inline void applyGivensRotation(std::span<KeyValue<MaxNumberOfQubits>>& firstLin
     auto firstIt = firstLine.begin();
     auto secondIt = secondLine.begin();
     while (firstIt != firstLine.end()) {
-        if (utils::isNull(firstIt->second)) [[unlikely]] {
+        if (utils::isNull(firstIt->amplitude)) [[unlikely]] {
             ++firstIt;
             if (!foundNonZeroEntry) {
                 firstLine = firstLine.subspan(1);
@@ -34,7 +34,7 @@ inline void applyGivensRotation(std::span<KeyValue<MaxNumberOfQubits>>& firstLin
 
         assert(secondIt != secondLine.end());
 
-        if (utils::isNull(secondIt->second)) [[unlikely]] {
+        if (utils::isNull(secondIt->amplitude)) [[unlikely]] {
             ++secondIt;
             if (!foundNonZeroEntry) {
                 secondLine = secondLine.subspan(1);
@@ -42,13 +42,13 @@ inline void applyGivensRotation(std::span<KeyValue<MaxNumberOfQubits>>& firstLin
             continue;
         }
 
-        if (firstIt->first != secondIt->first) [[unlikely]] {
+        if (firstIt->key != secondIt->key) [[unlikely]] {
             throw std::runtime_error("Congrats, you found a hash collision");
         }
 
         if (!foundNonZeroEntry) [[unlikely]] {
-            auto const& a = firstIt->second;
-            auto const& b = secondIt->second;
+            auto const& a = firstIt->amplitude;
+            auto const& b = secondIt->amplitude;
             assert(std::hypot(std::abs(a), std::abs(b)) > config::ATOL);
 
             double const invr = 1 / std::hypot(std::abs(a), std::abs(b));
@@ -59,16 +59,16 @@ inline void applyGivensRotation(std::span<KeyValue<MaxNumberOfQubits>>& firstLin
             foundNonZeroEntry = true;
         }
 
-        auto const oldFirst = firstIt->second;
-        firstIt->second = c * oldFirst - s * secondIt->second;
-        secondIt->second = std::conj(s) * oldFirst + std::conj(c) * secondIt->second;
+        auto const oldFirst = firstIt->amplitude;
+        firstIt->amplitude = c * oldFirst - s * secondIt->amplitude;
+        secondIt->amplitude = std::conj(s) * oldFirst + std::conj(c) * secondIt->amplitude;
 
-        if (utils::isNull(firstIt->second)) [[unlikely]] {
-            firstHash -= firstIt->first.hash();
+        if (utils::isNull(firstIt->amplitude)) [[unlikely]] {
+            firstHash -= firstIt->key.hash();
         }
 
-        if (utils::isNull(secondIt->second)) [[unlikely]] {
-            secondHash -= secondIt->first.hash();
+        if (utils::isNull(secondIt->amplitude)) [[unlikely]] {
+            secondHash -= secondIt->key.hash();
         }
 
         ++firstIt;

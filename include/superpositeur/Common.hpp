@@ -12,7 +12,12 @@ template <std::uint64_t N>
 using BasisVector = utils::BitSet<N>;
 
 template <std::uint64_t MaxNumberOfQubits>
-using KeyValue = std::pair<BasisVector<MaxNumberOfQubits>, std::complex<double>>; // FIXME: Maybe a struct?
+struct KeyValue {
+    static constexpr std::uint64_t MAX_NUMBER_OF_BITS = MaxNumberOfQubits;
+
+    BasisVector<MaxNumberOfQubits> key;
+    std::complex<double> amplitude;
+};
 
 template <std::uint64_t MaxNumberOfQubits>
 using SparseVector = std::vector<KeyValue<MaxNumberOfQubits>>; // Association list.

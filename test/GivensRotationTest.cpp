@@ -20,16 +20,16 @@ TEST_F(MixedStateSimplifierTest, ApplyGivensRotation) {
     std::span<KeyValue<64>> secondLine{b.begin(), b.end()};
     applyGivensRotation(firstLine, hashA, secondLine, hashB);
 
-    EXPECT_EQ(a[0].first, BV(0));
-    EXPECT_EQ(a[0].second, 0.);
-    EXPECT_EQ(a[1].first, BV(1));
-    EXPECT_EQ(a[1].second, 0.);
-    EXPECT_EQ(b[0].first, BV(0));
-    EXPECT_DOUBLE_EQ(b[0].second.real(), std::sqrt(2));
-    EXPECT_DOUBLE_EQ(b[0].second.imag(), 0.);
-    EXPECT_EQ(b[1].first, BV(1));
-    EXPECT_DOUBLE_EQ(b[1].second.real(), std::sqrt(2));
-    EXPECT_DOUBLE_EQ(b[1].second.imag(), 0.);
+    EXPECT_EQ(a[0].key, BV(0));
+    EXPECT_EQ(a[0].amplitude, 0.);
+    EXPECT_EQ(a[1].key, BV(1));
+    EXPECT_EQ(a[1].amplitude, 0.);
+    EXPECT_EQ(b[0].key, BV(0));
+    EXPECT_DOUBLE_EQ(b[0].amplitude.real(), std::sqrt(2));
+    EXPECT_DOUBLE_EQ(b[0].amplitude.imag(), 0.);
+    EXPECT_EQ(b[1].key, BV(1));
+    EXPECT_DOUBLE_EQ(b[1].amplitude.real(), std::sqrt(2));
+    EXPECT_DOUBLE_EQ(b[1].amplitude.imag(), 0.);
 
     // EXPECT_EQ(hashA, 1);
     // EXPECT_EQ(hashB, 1); // FIXME

@@ -28,7 +28,7 @@ public:
     }
 
     std::uint64_t currentSize() const {
-        return std::visit([](auto const& data) { return std::remove_reference<decltype(data)>::type::value_type::first_type::getNumberOfBits(); }, dataVariant);
+        return std::visit([](auto const& data) { return std::remove_reference<decltype(data)>::type::value_type::MAX_NUMBER_OF_BITS; }, dataVariant);
     }
 
     template <std::uint64_t NumberOfQubits>
@@ -221,14 +221,14 @@ private:
             
             assert(sizesIterator != sizesEnd && *sizesIterator > 0);
             assert(internals.it2 != internals.end);
-            assert((internals.it1->first & (~internals.reductionQubits)) == (internals.it2->first & (~internals.reductionQubits)));
+            assert((internals.it1->key & (~internals.reductionQubits)) == (internals.it2->key & (~internals.reductionQubits)));
 
-            Value result = Value(internals.it1->first.pext(internals.reductionQubits), internals.it2->first.pext(internals.reductionQubits), internals.it1->second * std::conj(internals.it2->second));
+            Value result = Value(internals.it1->key.pext(internals.reductionQubits), internals.it2->key.pext(internals.reductionQubits), internals.it1->amplitude * std::conj(internals.it2->amplitude));
 
-            auto current = internals.it1->first & (~internals.reductionQubits);
+            auto current = internals.it1->key & (~internals.reductionQubits);
             do {
                 ++internals.it2;
-            } while (internals.it2 != internals.end && ((internals.it2->first & (~internals.reductionQubits)) != current));
+            } while (internals.it2 != internals.end && ((internals.it2->key & (~internals.reductionQubits)) != current));
 
             if (internals.it2 == internals.end) {
                 ++internals.it1;
@@ -279,7 +279,7 @@ private:
                 return std::nullopt;
             }
             
-            Value result = Value(internals.it->first.pext(internals.reductionQubits), std::norm(internals.it->second));
+            Value result = Value(internals.it->key.pext(internals.reductionQubits), std::norm(internals.it->amplitude));
 
             ++internals.it;
 

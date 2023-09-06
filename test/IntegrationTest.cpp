@@ -6,17 +6,6 @@
 namespace superpositeur {
 
 class IntegrationTest : public ::testing::Test {
-public:
-    template <typename T>
-    void checkEquality(std::vector<std::pair<std::string, T>> const &left,
-                       std::vector<std::pair<std::string, T>> const &right) {
-        REQUIRE_EQ(left.size(), right.size());
-
-        for (std::uint64_t i = 0; i < left.size(); ++i) {
-            EXPECT_EQ(left[i].first, right[i].first);
-            EXPECT_TRUE(utils::isNull(left[i].second - right[i].second));
-        }
-    }
 };
 
 TEST_F(IntegrationTest, Simple) {
