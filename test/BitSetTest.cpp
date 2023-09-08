@@ -149,6 +149,45 @@ TEST_F(BitSetTest, CountlZero) {
     EXPECT_EQ(BitSet<64>("11111").countlZero(), 59);
 }
 
+TEST_F(BitSetTest, LeftShiftSmall) {
+    BitSet<64> victim{"000010000010001"};
+    EXPECT_EQ(victim << 0, victim);
+    EXPECT_EQ(victim << 1, BitSet<64>{"000100000100010"});
+    EXPECT_EQ(victim << 2, BitSet<64>{"001000001000100"});
+    EXPECT_EQ(victim << 14, BitSet<64>{"00001000001000100000000000000"});
+    EXPECT_EQ(victim << 15, BitSet<64>{"000010000010001000000000000000"});
+    EXPECT_EQ(victim << 63, BitSet<64>{"1000000000000000000000000000000000000000000000000000000000000000"});
+    EXPECT_EQ(victim << 64, BitSet<64>{"0000000000000000000000000000000000000000000000000000000000000000"});
+}
+
+TEST_F(BitSetTest, LeftShiftLarge) {
+    BitSet<512> victim;
+    victim.set(3);
+    victim.set(30);
+    victim.set(300);
+    EXPECT_EQ(victim << 0, victim);
+
+    BitSet<512> expected1;
+    expected1.set(4);
+    expected1.set(31);
+    expected1.set(301);
+
+    EXPECT_EQ(victim << 1, expected1);
+
+    BitSet<512> expected200;
+    expected200.set(203);
+    expected200.set(230);
+    expected200.set(500);
+
+    EXPECT_EQ(victim << 200, expected200);
+
+    BitSet<512> expected400;
+    expected400.set(403);
+    expected400.set(430);
+
+    EXPECT_EQ(victim << 400, expected400);
+}
+
 TEST_F(BitSetTest, Pext) {
     BitSet<384> victim;
     victim.set(345);

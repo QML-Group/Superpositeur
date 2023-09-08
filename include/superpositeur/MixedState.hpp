@@ -15,12 +15,13 @@
 #include "superpositeur/MatrixSparseVectorMultiplication.hpp"
 #include "superpositeur/utils/FloatComparison.hpp"
 #include "superpositeur/StrongTypes.hpp"
+#include "superpositeur/SparseVectorSort.hpp"
 
 namespace superpositeur {
 
 class MixedState {
 public:
-    explicit MixedState() : dataVariant(SparseVector<64>{{BasisVector<64>{}, 1.}}), sizes({1}), hashes({0}) {}
+    explicit MixedState() : currentSortIndices(~BasisVector<128>()), dataVariant(SparseVector<64>{{BasisVector<64>{}, 1.}}), sizes({1}), hashes({0}) {}
 
     void reset() {
         dataVariant = SparseVector<64>{{BasisVector<64>{}, 1.}};
@@ -156,7 +157,7 @@ public:
 
         auto const matrix = circuitInstruction.getKrausOperators()[0];
 
-        auto ops = circuitInstruction.getOperandsMask().cast<64>(); // FIXME
+        auto ops = circuitInstruction.getOperandsMask().cast<MaxNumberOfQubits>(); // FIXME
         auto nOps = circuitInstruction.getOperandsMask().popcount();
 
         if (nOps > 2) {
@@ -165,17 +166,15 @@ public:
         
         auto negOps = ~ops;
 
-        std::sort(std::execution::par, data.begin(), data.end(), [negOps](auto const left, auto const right) {
-            return left.ket.pext(negOps) < right.ket.pext(negOps);
-        });
+        sortSparseVector(data, currentSortIndices.cast<MaxNumberOfQubits>(), negOps);
 
         SparseVector<MaxNumberOfQubits> d;
         auto it = data.begin();
         auto max = data.end();
         while (it != max) {
             auto firstKey = it->ket;
-            auto rest = firstKey.pext(negOps);
-            auto end = std::find_if(it, max, [negOps, rest](auto x) { return x.ket.pext(negOps) != rest; });
+            auto rest = firstKey & negOps;
+            auto end = std::find_if(it, max, [negOps, rest](auto x) { return (x.ket & negOps) != rest; });
 
             assert(d.empty());
             d.insert(d.begin(), it, end);
@@ -188,7 +187,7 @@ public:
                     acc += v * matrix.get(row, k.pext(ops));
                 }
 
-                if (utils::isNotNull(acc)) {
+                if (utils::isNotNull(acc)) { // Is this needed?
                     if (insert) {
                         if (data.size() < data.capacity()) [[likely]] {
                             data.emplace_back(firstKey.pdep(row, ops), acc);
@@ -218,7 +217,14 @@ public:
             d.clear();
         }
 
+        std::inplace_merge(data.begin(), max, data.end(), [negOps](auto const left, auto const right) { return (left.ket & negOps) < (right.ket & negOps); });
+
+        assert(std::is_sorted(data.begin(), data.end(), [negOps](auto const left, auto const right) {
+            return (left.ket & negOps) < (right.ket & negOps);
+        }));
+
         sizes[0] = data.size(); // FIXME: to pass the assert
+        currentSortIndices = ~circuitInstruction.getOperandsMask();
     }
 
 private:
@@ -429,6 +435,7 @@ private:
 
     bool isConsistent() const;
 
+    BasisVector<128> currentSortIndices;
     std::variant<SparseVector<64>, SparseVector<128>> dataVariant;
     Sizes sizes;
     Hashes hashes;

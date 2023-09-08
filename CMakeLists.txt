@@ -37,6 +37,7 @@ add_library(superpositeur
     "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/cli/SuperpositeurCLISession.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/MixedState.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/QuantumOperation.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/SparseVectorSort.cpp"
 )
 
 target_include_directories(superpositeur

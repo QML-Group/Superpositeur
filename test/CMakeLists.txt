@@ -22,6 +22,7 @@ add_executable(superpositeur-test
     "${CMAKE_CURRENT_SOURCE_DIR}/MixedStateTest.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/MatrixTest.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/OperandPermutationTest.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/SparseVectorSortTest.cpp"
     ${generated_random_integration_tests}
 )
 
