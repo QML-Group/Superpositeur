@@ -27,4 +27,13 @@ using Hashes = std::vector<std::uint64_t>;
 
 using KrausOperators = std::vector<Matrix>;
 
+
+#ifndef SUPERPOSITEUR_INSTRU
+#define INSTRU \
+if(false) std::cout
+#else 
+#define INSTRU \
+std::cout
+#endif
+
 } // namespace  superpositeur

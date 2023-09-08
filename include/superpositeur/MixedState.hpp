@@ -168,6 +168,11 @@ public:
 
         sortSparseVector(data, currentSortIndices.cast<MaxNumberOfQubits>(), negOps);
 
+        // std::sort(std::execution::par, data.begin(), data.end(), [negOps](auto left, auto right) { return (left.ket & negOps) < (right.ket & negOps); });
+
+        auto startTime = std::chrono::steady_clock::now();
+        auto originalDataSize = data.size();
+
         SparseVector<MaxNumberOfQubits> d;
         auto it = data.begin();
         auto max = data.end();
@@ -217,7 +222,17 @@ public:
             d.clear();
         }
 
+        auto endTime = std::chrono::steady_clock::now();
+
+        INSTRU << "applyGate," << originalDataSize << "," << std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime).count() << std::endl;
+
+        startTime = std::chrono::steady_clock::now();
+
         std::inplace_merge(data.begin(), max, data.end(), [negOps](auto const left, auto const right) { return (left.ket & negOps) < (right.ket & negOps); });
+
+        endTime = std::chrono::steady_clock::now();
+
+        INSTRU << "finalInplaceMerge," << originalDataSize << "," << data.size() << "," << std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime).count() << std::endl;
 
         assert(std::is_sorted(data.begin(), data.end(), [negOps](auto const left, auto const right) {
             return (left.ket & negOps) < (right.ket & negOps);

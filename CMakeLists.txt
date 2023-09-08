@@ -115,6 +115,20 @@ if(NOT SUPERPOSITEUR_CPU_COMPATIBILITY_MODE)
 endif()
 
 #=============================================================================#
+# Instrumentation                                                             #
+#=============================================================================#
+
+option(
+    SUPERPOSITEUR_INSTRUMENTATION
+    "Output some information about runtimes for debugging performance (WIP)"
+    OFF
+)
+
+if(SUPERPOSITEUR_INSTRUMENTATION)
+    target_compile_definitions(superpositeur PUBLIC SUPERPOSITEUR_INSTRU)
+endif()
+
+#=============================================================================#
 # Address sanitizer                                                           #
 #=============================================================================#
 
