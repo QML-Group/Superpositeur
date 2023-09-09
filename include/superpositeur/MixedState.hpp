@@ -177,53 +177,48 @@ public:
         auto startTime = std::chrono::steady_clock::now();
         auto originalDataSize = data.size();
 
-        SparseVector<MaxNumberOfQubits> d;
+        std::vector<std::complex<double>> inputVector;
+        inputVector.resize(matrix.getNumberOfRows());
+
         auto it = data.begin();
         auto max = data.end();
         while (it != max) {
             auto firstKey = it->ket;
             auto rest = firstKey & negOps;
-            auto end = std::find_if(it, max, [negOps, rest](auto x) { return (x.ket & negOps) != rest; });
 
-            assert(d.empty());
-            d.insert(d.begin(), it, end);
+            std::fill(inputVector.begin(), inputVector.end(), 0.);
 
-            bool insert = false;
+            auto end = it;
+            while (end != max && (end->ket & negOps) == rest) {
+                inputVector[end->ket.pext(ops)] = end->amplitude;
+                ++end;
+            }
 
-            for (std::uint64_t row = 0; row < matrix.getNumberOfRows(); ++row) {
-                std::complex<double> acc = 0;
-                for (auto const& [k, v]: d) {
-                    acc += v * matrix.get(row, k.pext(ops));
-                }
+            for (std::uint64_t i = 0; i < matrix.getNumberOfRows(); ++i) {
+                auto v = std::inner_product(inputVector.begin(), inputVector.end(), matrix.line(i).begin(), std::complex<double>(0.));
+                auto key = firstKey.pdep(i, ops);
 
-                if (utils::isNotNull(acc)) { // Is this needed?
-                    if (insert) {
+                if (utils::isNotNull(v)) {
+                    if (it == end) {
                         if (data.size() < data.capacity()) [[likely]] {
-                            data.emplace_back(firstKey.pdep(row, ops), acc);
+                            data.emplace_back(key, v);
                         } else {
                             auto itDist = std::distance(data.begin(), it);
                             auto endDist = std::distance(data.begin(), end);
                             auto maxDist = std::distance(data.begin(), max);
-                            data.emplace_back(firstKey.pdep(row, ops), acc);
+                            data.emplace_back(key, v);
                             it = std::next(data.begin(), itDist);
                             end = std::next(data.begin(), endDist);
                             max = std::next(data.begin(), maxDist);
                         }
                     } else {
-                        *it = { firstKey.pdep(row, ops), acc };
+                        *it = { key, v };
                         ++it;
-                        if (it == end) {
-                            insert = true;
-                        }
                     }
                 }
             }
 
-            if (!insert) {
-                it = data.erase(it, end);
-            }
-
-            d.clear();
+            it = data.erase(it, end);
         }
 
         auto endTime = std::chrono::steady_clock::now();

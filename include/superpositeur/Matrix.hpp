@@ -8,6 +8,7 @@
 #include <set>
 #include <random>
 #include <cassert>
+#include <span>
 
 #include "superpositeur/utils/FloatComparison.hpp"
 
@@ -54,6 +55,10 @@ public:
         assert(areValidIndices(i, j));
 
         return data[i * getNumberOfCols() + j];
+    }
+
+    inline std::span<Value const> line(std::uint64_t i) const {
+        return { data.begin() + i * getNumberOfCols(), data.begin() + (i + 1) * getNumberOfCols() };
     }
 
     inline void set(std::uint64_t i, std::uint64_t j, Value v) {
