@@ -68,30 +68,27 @@ void removeSortIndices(SparseVector<MaxNumberOfQubits>& data, BasisVector<MaxNum
 
     auto startTime = std::chrono::steady_clock::now();
 
-    auto remainingSortIndicesToRemove = sortIndicesToRemove;
-    auto removedSortIndices = BasisVector<MaxNumberOfQubits>();
-    assert((remainingSortIndicesToRemove | removedSortIndices) == sortIndicesToRemove);
-    while (!remainingSortIndicesToRemove.empty()) {
-        auto index = remainingSortIndicesToRemove.countrZero();
-        assert(remainingSortIndicesToRemove.test(index));
-        removeSortIndexImpl(data, currentSortIndices ^ removedSortIndices, index);
-
-        remainingSortIndicesToRemove.set(index, false);
-        removedSortIndices.set(index);
-        assert((remainingSortIndicesToRemove | removedSortIndices) == sortIndicesToRemove);
+    for (std::uint64_t i = 0; i < MaxNumberOfQubits; ++i) {
+        if (sortIndicesToRemove.test(i)) {
+            removeSortIndexImpl(data, currentSortIndices, i);
+            currentSortIndices.set(i, false);
+        }
     }
-    
+
     auto endTime = std::chrono::steady_clock::now();
 
     INSTRU << "removeSortIndices," << data.size() << "," << std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime).count() << "," << currentSortIndices << "," << sortIndicesToRemove << std::endl;
 
-    assert(std::is_sorted(data.begin(), data.end(), [targetSortIndices = currentSortIndices ^ sortIndicesToRemove](auto const left, auto const right) {
+    assert(std::is_sorted(data.begin(), data.end(), [targetSortIndices = currentSortIndices](auto const left, auto const right) {
         return (left.ket & targetSortIndices) < (right.ket & targetSortIndices);
     }));
 }
 
 template <std::uint64_t MaxNumberOfQubits>
-void addSortIndexImpl(SparseVector<MaxNumberOfQubits> &data, std::uint64_t index, BasisVector<MaxNumberOfQubits> mask) {
+void addSortIndexImpl(SparseVector<MaxNumberOfQubits> &data, std::uint64_t index, BasisVector<MaxNumberOfQubits> desiredSortIndices) {
+    auto mask = (index + 1 < MaxNumberOfQubits) ? ((~BasisVector<MaxNumberOfQubits>()) << (index + 1)) : BasisVector<MaxNumberOfQubits>();
+    mask &= desiredSortIndices;
+
     auto it = data.begin();
     while (it != data.end()) {
         auto current = it->ket & mask;
@@ -102,12 +99,14 @@ void addSortIndexImpl(SparseVector<MaxNumberOfQubits> &data, std::uint64_t index
 }
 
 template <std::uint64_t MaxNumberOfQubits>
-void addSortIndices(SparseVector<MaxNumberOfQubits>& data, BasisVector<MaxNumberOfQubits> currentSortIndices, BasisVector<MaxNumberOfQubits> sortIndicesToAdd) {
+void addSortIndices(SparseVector<MaxNumberOfQubits>& data, BasisVector<MaxNumberOfQubits> currentSortIndices, BasisVector<MaxNumberOfQubits> desiredSortIndices) {
     assert(std::is_sorted(data.begin(), data.end(), [currentSortIndices](auto const left, auto const right) {
         return (left.ket & currentSortIndices) < (right.ket & currentSortIndices);
     }));
 
-    assert((currentSortIndices & sortIndicesToAdd).empty());
+    assert(currentSortIndices & desiredSortIndices == currentSortIndices);
+
+    auto sortIndicesToAdd = (~currentSortIndices) & desiredSortIndices;
 
     if (sortIndicesToAdd.empty()) {
         return;
@@ -115,24 +114,19 @@ void addSortIndices(SparseVector<MaxNumberOfQubits>& data, BasisVector<MaxNumber
 
     auto startTime = std::chrono::steady_clock::now();
 
-    auto remainingSortIndicesToAdd = sortIndicesToAdd;
-    while (!remainingSortIndicesToAdd.empty()) {
-        auto index = MaxNumberOfQubits - 1 - remainingSortIndicesToAdd.countlZero();
-        assert(remainingSortIndicesToAdd.test(index));
-        remainingSortIndicesToAdd.set(index, false);
-
-        auto mask = (index + 1 < MaxNumberOfQubits) ? ((~BasisVector<MaxNumberOfQubits>()) << (index + 1)) : BasisVector<MaxNumberOfQubits>();
-        mask &= (currentSortIndices | sortIndicesToAdd);
-
-        addSortIndexImpl(data, index, mask);
+    for (std::uint64_t i = 1; i <= MaxNumberOfQubits; ++i) {
+        std::uint64_t index = MaxNumberOfQubits - i;
+        if (sortIndicesToAdd.test(index)) {
+            addSortIndexImpl(data, index, desiredSortIndices);
+        }
     }
 
     auto endTime = std::chrono::steady_clock::now();
 
     INSTRU << "addSortIndices," << data.size() << "," << std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime).count() << "," << currentSortIndices << "," << sortIndicesToAdd << std::endl;
 
-    assert(std::is_sorted(data.begin(), data.end(), [currentSortIndices, sortIndicesToAdd](auto const left, auto const right) {
-        return (left.ket & (currentSortIndices | sortIndicesToAdd)) < (right.ket & (currentSortIndices | sortIndicesToAdd));
+    assert(std::is_sorted(data.begin(), data.end(), [desiredSortIndices](auto const left, auto const right) {
+        return (left.ket & desiredSortIndices) < (right.ket & desiredSortIndices);
     }));
 }
 
@@ -148,8 +142,7 @@ void sortSparseVector(SparseVector<MaxNumberOfQubits>& data, BasisVector<MaxNumb
     removeSortIndices(data, currentSortIndices, sortIndicesToRemove);
 
     auto commonSortIndices = currentSortIndices & desiredSortIndices;
-    auto sortIndicesToAdd = (~currentSortIndices) & desiredSortIndices;
-    addSortIndices(data, commonSortIndices, sortIndicesToAdd);
+    addSortIndices(data, commonSortIndices, desiredSortIndices);
 
     assert(std::is_sorted(data.begin(), data.end(), [desiredSortIndices](auto const left, auto const right) {
         return (left.ket & desiredSortIndices) < (right.ket & desiredSortIndices);
