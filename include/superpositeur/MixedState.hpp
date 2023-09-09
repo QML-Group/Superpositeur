@@ -16,6 +16,7 @@
 #include "superpositeur/utils/FloatComparison.hpp"
 #include "superpositeur/StrongTypes.hpp"
 #include "superpositeur/SparseVectorSort.hpp"
+#include "oneapi/tbb/parallel_sort.h"
 
 namespace superpositeur {
 
@@ -168,7 +169,10 @@ public:
 
         sortSparseVector(data, currentSortIndices.cast<MaxNumberOfQubits>(), negOps);
 
-        // std::sort(std::execution::par, data.begin(), data.end(), [negOps](auto left, auto right) { return (left.ket & negOps) < (right.ket & negOps); });
+        // auto startTimeRegularSort = std::chrono::steady_clock::now();
+        // oneapi::tbb::parallel_sort(data.begin(), data.end(), [negOps](auto left, auto right) { return (left.ket & negOps) < (right.ket & negOps); });
+        // auto endTimeRegularSort = std::chrono::steady_clock::now();
+        // INSTRU << "regularSort," << data.size() << "," << std::chrono::duration_cast<std::chrono::nanoseconds>(endTimeRegularSort - startTimeRegularSort).count() << "," << negOps << std::endl;
 
         auto startTime = std::chrono::steady_clock::now();
         auto originalDataSize = data.size();

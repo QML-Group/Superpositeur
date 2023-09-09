@@ -262,6 +262,20 @@ public:
 
         return result;
     }
+
+    std::uint64_t countrZero() const {
+        std::uint64_t result = 0;
+
+        for (std::uint64_t i = 0; i < STORAGE_SIZE; ++i) {
+            std::uint64_t partialCountrZero = std::countr_zero(data[i]);
+            result += partialCountrZero;
+            if (partialCountrZero < BITS_PER_UNIT) {
+                return result;
+            }
+        }
+
+        return result;
+    }
     
     inline std::uint64_t bitWidth() const {
         return NumberOfBits - countlZero();

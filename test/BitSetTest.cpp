@@ -149,6 +149,27 @@ TEST_F(BitSetTest, CountlZero) {
     EXPECT_EQ(BitSet<64>("11111").countlZero(), 59);
 }
 
+TEST_F(BitSetTest, CountrZero) {
+    BitSet<8576> victim;
+    victim.set(1);
+
+    EXPECT_EQ(victim.countrZero(), 1);
+    
+    victim.set(1, false);
+    EXPECT_EQ(victim.countrZero(), 8576);
+    
+    victim.set(14);
+    victim.set(1451);
+    victim.set(4452);
+    EXPECT_EQ(victim.countrZero(), 14);
+    
+    victim.set(14, false);
+
+    EXPECT_EQ(victim.countrZero(), 1451);
+
+    EXPECT_EQ(BitSet<64>("10100").countrZero(), 2);
+}
+
 TEST_F(BitSetTest, LeftShiftSmall) {
     BitSet<64> victim{"000010000010001"};
     EXPECT_EQ(victim << 0, victim);
