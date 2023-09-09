@@ -104,7 +104,7 @@ void addSortIndices(SparseVector<MaxNumberOfQubits>& data, BasisVector<MaxNumber
         return (left.ket & currentSortIndices) < (right.ket & currentSortIndices);
     }));
 
-    assert(currentSortIndices & desiredSortIndices == currentSortIndices);
+    assert((currentSortIndices & desiredSortIndices) == currentSortIndices);
 
     auto sortIndicesToAdd = (~currentSortIndices) & desiredSortIndices;
 
