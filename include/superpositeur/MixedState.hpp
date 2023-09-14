@@ -66,7 +66,7 @@ private:
 
         auto& hash1 = hashes[index1];
 
-        auto [it, inserted] = hashToIndex.insert(std::make_pair(hash1, index1));
+        auto [it, inserted] = hashToIndex.insert(std::make_pair(hash1 ^ matrixOfVectors[index1].size(), index1));
         if (inserted) {
             return;
         }
@@ -76,9 +76,14 @@ private:
         assert(hash2 == it->first);
         assert(hash1 == hash2);
 
-        applyGivensRotation<MaxNumberOfQubits>(matrixOfVectors[index1], hash1, matrixOfVectors[index2], hash2);
+        auto success = applyGivensRotation<MaxNumberOfQubits>(matrixOfVectors[index1], hash1, matrixOfVectors[index2], hash2);
 
-        if (hash2 == it->first) [[likely]] {
+        if (!success) {
+            // Hash collision: leave it be.
+            return;
+        }
+
+        if ((hash2 ^ matrixOfVectors[index2].size()) == it->first) [[likely]] {
             insertOrApply(matrixOfVectors, hashToIndex, index1);
             return;
         }
