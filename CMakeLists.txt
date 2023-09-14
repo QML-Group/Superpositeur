@@ -37,11 +37,23 @@ add_library(superpositeur
     "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/cli/SuperpositeurCLISession.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/MixedState.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/QuantumOperation.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/superpositeur/SparseVectorSort.cpp"
 )
 
 target_include_directories(superpositeur
     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/"
 )
+
+set(TBB_TEST OFF)
+set(TBBMALLOC_BUILD OFF)
+FetchContent_Declare(
+  tbb-project
+GIT_REPOSITORY https://github.com/oneapi-src/oneTBB.git
+GIT_TAG be2fb93722eb973a495c1d5b3661d8768d58d51b
+)
+FetchContent_MakeAvailable(tbb-project)
+
+target_link_libraries(superpositeur PUBLIC tbb)
 
 #=============================================================================#
 # Superpositeur CLI executable                                                #
@@ -62,8 +74,7 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     target_compile_options(superpositeur PRIVATE
         -Wall -Wextra -Werror -Wfatal-errors
         -Wno-error=restrict
-        -fomit-frame-pointer
-        -flto
+        $<$<CONFIG:RELEASE>:-fomit-frame-pointer -flto>
     )
 elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     target_compile_options(superpositeur PRIVATE
@@ -71,8 +82,7 @@ elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
         -Wno-error=unused-but-set-variable
         -Wno-error=unused-function
         -Wno-error=unused-local-typedef
-        -fomit-frame-pointer
-        -flto
+        $<$<CONFIG:RELEASE>:-fomit-frame-pointer -flto>
     )
 elseif(MSVC)
     target_compile_options(superpositeur PRIVATE
@@ -102,6 +112,20 @@ if(NOT SUPERPOSITEUR_CPU_COMPATIBILITY_MODE)
             -march=native
         )
     endif()
+endif()
+
+#=============================================================================#
+# Instrumentation                                                             #
+#=============================================================================#
+
+option(
+    SUPERPOSITEUR_INSTRUMENTATION
+    "Output some information about runtimes for debugging performance (WIP)"
+    OFF
+)
+
+if(SUPERPOSITEUR_INSTRUMENTATION)
+    target_compile_definitions(superpositeur PUBLIC SUPERPOSITEUR_INSTRU)
 endif()
 
 #=============================================================================#

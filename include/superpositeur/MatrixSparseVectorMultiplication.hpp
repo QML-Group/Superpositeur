@@ -72,8 +72,8 @@ private:
     };
     
     Matrix const& matrix;
-    Input::iterator const begin;
-    Input::iterator const end;
+    typename Input::iterator const begin;
+    typename Input::iterator const end;
     BasisVector<MaxNumberOfQubits> operands;
     std::vector<Iterator> iterators;
 };

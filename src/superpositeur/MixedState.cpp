@@ -3,30 +3,24 @@
 namespace superpositeur {
 
 bool MixedState::isConsistent() const {
-    auto dataSize = std::visit([](auto &&data) { return data.size(); }, dataVariant);
+    auto dataSize = std::visit([](auto const& data) { return data.size(); }, dataVariant);
 
-    auto sizesSum = std::reduce(sizes.begin(), sizes.end());
-
-    if (dataSize == 0 || sizesSum != dataSize) {
+    if (dataSize == 0) {
         return false;
     }
 
-    if (hashes.size() != sizes.size()) {
+    if (hashes.size() != dataSize) {
         return false;
     }
 
-    if (std::ranges::any_of(sizes, [](auto x) { return x == 0; })) {
+    if (std::visit([](auto const& data) { return std::ranges::any_of(data, [](auto const& x) { return x.empty(); }); }, dataVariant)) {
         return false;
     }
 
-    return std::visit([](auto&& data) {
-        if (data.empty()) {
-            return false;
-        }
-
+    return std::visit([](auto const& data) {
         double accumulator = 0.;
-        for (auto const &[key, factor] : data) {
-            accumulator += std::norm(factor);
+        for (auto const& v: data) {
+            accumulator = std::accumulate(v.begin(), v.end(), accumulator, [](auto acc, auto x) { return acc + std::norm(x.amplitude); });
         }
         return utils::isNull(accumulator - 1.);
     }, dataVariant);

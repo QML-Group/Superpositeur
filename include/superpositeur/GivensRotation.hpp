@@ -10,70 +10,73 @@
 namespace superpositeur {
 
 template <std::uint64_t MaxNumberOfQubits = 64>
-inline void applyGivensRotation(std::span<KeyValue<MaxNumberOfQubits>>& firstLine, std::uint64_t& firstHash, std::span<KeyValue<MaxNumberOfQubits>>& secondLine, std::uint64_t& secondHash) {
+inline void applyGivensRotation(SparseVector<MaxNumberOfQubits>& firstLine, std::uint64_t& firstHash, SparseVector<MaxNumberOfQubits>& secondLine, std::uint64_t& secondHash) {
     assert(!firstLine.empty());
-    assert(!secondLine.empty());
 
+    assert(firstLine.size() == secondLine.size());
+    assert(std::equal(firstLine.begin(), firstLine.end(), secondLine.begin(), [](auto left, auto right) { return left.ket == right.ket; }));
+
+    assert(std::all_of(firstLine.begin(), firstLine.end(), [](auto x) { return utils::isNotNull(x.amplitude); }));
+    assert(std::all_of(secondLine.begin(), secondLine.end(), [](auto x) { return utils::isNotNull(x.amplitude); }));
+
+    assert(std::accumulate(firstLine.begin(), firstLine.end(), 0ULL, [](auto acc, auto x) { return acc + x.ket.hash(); }) == firstHash);
+    assert(std::accumulate(secondLine.begin(), secondLine.end(), 0ULL, [](auto acc, auto x) { return acc + x.ket.hash(); }) == secondHash);
     assert(firstHash == secondHash);
 
-    bool foundNonZeroEntry = false;
-
-    std::complex<double> c = 0;
-    std::complex<double> s = 0;
 
     auto firstIt = firstLine.begin();
     auto secondIt = secondLine.begin();
-    while (firstIt != firstLine.end()) {
-        if (utils::isNull(firstIt->amplitude)) [[unlikely]] {
-            ++firstIt;
-            if (!foundNonZeroEntry) {
-                firstLine = firstLine.subspan(1);
-            }
-            continue;
-        }
 
+    auto firstWriteIt = firstLine.begin();
+    auto secondWriteIt = secondLine.begin();
+
+    auto const& a = firstIt->amplitude;
+    auto const& b = secondIt->amplitude;
+    assert(std::hypot(std::abs(a), std::abs(b)) > config::ATOL);
+
+    double const invr = 1 / std::hypot(std::abs(a), std::abs(b));
+
+    std::complex<double> c = b * invr;
+    std::complex<double> s = a * invr;
+
+    while (firstIt != firstLine.end()) {
         assert(secondIt != secondLine.end());
 
-        if (utils::isNull(secondIt->amplitude)) [[unlikely]] {
-            ++secondIt;
-            if (!foundNonZeroEntry) {
-                secondLine = secondLine.subspan(1);
-            }
-            continue;
-        }
+        assert(utils::isNotNull(firstIt->amplitude));
+        assert(utils::isNotNull(secondIt->amplitude));
+
+        assert(firstWriteIt <= firstIt);
+        assert(secondWriteIt <= secondIt);
 
         if (firstIt->ket != secondIt->ket) [[unlikely]] {
             throw std::runtime_error("Congrats, you found a hash collision");
         }
 
-        if (!foundNonZeroEntry) [[unlikely]] {
-            auto const& a = firstIt->amplitude;
-            auto const& b = secondIt->amplitude;
-            assert(std::hypot(std::abs(a), std::abs(b)) > config::ATOL);
+        auto newFirstAmplitude = c * firstIt->amplitude - s * secondIt->amplitude;
+        auto newSecondAmplitude = std::conj(s) * firstIt->amplitude + std::conj(c) * secondIt->amplitude;
 
-            double const invr = 1 / std::hypot(std::abs(a), std::abs(b));
-
-            c = b * invr;
-            s = a * invr;
-
-            foundNonZeroEntry = true;
-        }
-
-        auto const oldFirst = firstIt->amplitude;
-        firstIt->amplitude = c * oldFirst - s * secondIt->amplitude;
-        secondIt->amplitude = std::conj(s) * oldFirst + std::conj(c) * secondIt->amplitude;
-
-        if (utils::isNull(firstIt->amplitude)) [[unlikely]] {
+        if (utils::isNotNull(newFirstAmplitude)) [[likely]] {
+            firstWriteIt->ket = firstIt->ket;
+            firstWriteIt->amplitude = newFirstAmplitude;
+            ++firstWriteIt;
+        } else {
             firstHash -= firstIt->ket.hash();
         }
 
-        if (utils::isNull(secondIt->amplitude)) [[unlikely]] {
+        if (utils::isNotNull(newSecondAmplitude)) [[likely]] {
+            secondWriteIt->ket = secondIt->ket;
+            secondWriteIt->amplitude = newSecondAmplitude;
+            ++secondWriteIt;
+        } else {
             secondHash -= secondIt->ket.hash();
         }
 
         ++firstIt;
         ++secondIt;
     }
+
+    firstLine.erase(firstWriteIt, firstLine.end());
+    secondLine.erase(secondWriteIt, secondLine.end());
 }
 
 } // namespace  superpositeur

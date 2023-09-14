@@ -210,6 +210,30 @@ public:
         return result;
     }
 
+    BitSet operator<<(std::uint64_t n) {
+        BitSet result;
+
+        if (n >= NumberOfBits) {
+            return result;
+        }
+
+        std::uint64_t div = n / BITS_PER_UNIT;
+        std::uint64_t rem = n % BITS_PER_UNIT;
+
+        assert(div < STORAGE_SIZE);
+
+        std::uint64_t topMask = rem == 0UL ? 0UL : (~0UL) << (BITS_PER_UNIT - rem);
+
+        result.data[div] = data[0] << rem;
+        for (std::uint64_t i = div + 1; i < STORAGE_SIZE; ++i) {
+            result.data[i] = data[i - div] << rem;
+            result.data[i] |= (data[i - div - 1] & topMask) >> (BITS_PER_UNIT - rem);
+            // result.data[i] |= _pext_u64(data[i - div - 1], topMask); // This is also possible but uses pext intrinsics.
+        }
+
+        return result;
+    }
+
     std::uint64_t hash() const {
         auto singleHash = [] (std::uint64_t x) {
             x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9UL;
@@ -232,6 +256,20 @@ public:
             std::uint64_t partialCountlZero = std::countl_zero(data[STORAGE_SIZE - i]);
             result += partialCountlZero;
             if (partialCountlZero < BITS_PER_UNIT) {
+                return result;
+            }
+        }
+
+        return result;
+    }
+
+    std::uint64_t countrZero() const {
+        std::uint64_t result = 0;
+
+        for (std::uint64_t i = 0; i < STORAGE_SIZE; ++i) {
+            std::uint64_t partialCountrZero = std::countr_zero(data[i]);
+            result += partialCountrZero;
+            if (partialCountrZero < BITS_PER_UNIT) {
                 return result;
             }
         }
@@ -290,6 +328,12 @@ public:
 private:
     std::array<std::uint64_t, STORAGE_SIZE> data{};
 };
+
+template <std::uint64_t NumberOfBits>
+inline std::ostream &operator<<(std::ostream &os, BitSet<NumberOfBits> const &bitset) {
+    os << bitset.toString();
+    return os;
+}
 
 static_assert(BitSet<64>::STORAGE_SIZE == 1);
 static_assert(BitSet<128>::STORAGE_SIZE == 2);
