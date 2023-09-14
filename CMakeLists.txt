@@ -44,6 +44,8 @@ target_include_directories(superpositeur
     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/"
 )
 
+set(TBB_TEST OFF)
+set(TBBMALLOC_BUILD OFF)
 FetchContent_Declare(
   tbb-project
 GIT_REPOSITORY https://github.com/oneapi-src/oneTBB.git
@@ -72,8 +74,7 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     target_compile_options(superpositeur PRIVATE
         -Wall -Wextra -Werror -Wfatal-errors
         -Wno-error=restrict
-        -fomit-frame-pointer
-        -flto
+        $<$<CONFIG:RELEASE>:-fomit-frame-pointer -flto>
     )
 elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     target_compile_options(superpositeur PRIVATE
@@ -81,8 +82,7 @@ elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
         -Wno-error=unused-but-set-variable
         -Wno-error=unused-function
         -Wno-error=unused-local-typedef
-        -fomit-frame-pointer
-        -flto
+        $<$<CONFIG:RELEASE>:-fomit-frame-pointer -flto>
     )
 elseif(MSVC)
     target_compile_options(superpositeur PRIVATE
