@@ -13,17 +13,13 @@ TEST_F(MixedStateSimplifierTest, ApplyGivensRotation) {
     SparseVector<64> a = {{BV(0), 1.}, {BV(1), 1.}};
     SparseVector<64> b = {{BV(0), 1.}, {BV(1), 1.}};
 
-    std::uint64_t hashA = 0xDEADBEEF;
-    std::uint64_t hashB = 0xDEADBEEF;
+    std::uint64_t hashA = BV(0).hash() + BV(1).hash();
+    std::uint64_t hashB = BV(0).hash() + BV(1).hash();
 
-    std::span<KeyValue<64>> firstLine{a.begin(), a.end()};
-    std::span<KeyValue<64>> secondLine{b.begin(), b.end()};
-    applyGivensRotation(firstLine, hashA, secondLine, hashB);
+    applyGivensRotation(a, hashA, b, hashB);
 
-    EXPECT_EQ(a[0].ket, BV(0));
-    EXPECT_EQ(a[0].amplitude, 0.);
-    EXPECT_EQ(a[1].ket, BV(1));
-    EXPECT_EQ(a[1].amplitude, 0.);
+    EXPECT_TRUE(a.empty());
+    EXPECT_EQ(b.size(), 2);
     EXPECT_EQ(b[0].ket, BV(0));
     EXPECT_DOUBLE_EQ(b[0].amplitude.real(), std::sqrt(2));
     EXPECT_DOUBLE_EQ(b[0].amplitude.imag(), 0.);
@@ -34,7 +30,5 @@ TEST_F(MixedStateSimplifierTest, ApplyGivensRotation) {
     // EXPECT_EQ(hashA, 1);
     // EXPECT_EQ(hashB, 1); // FIXME
 }
-
-// FIXME: should fail / revert if keys are not identical in both rows.
 
 } // namespace  superpositeur

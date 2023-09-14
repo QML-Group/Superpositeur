@@ -12,7 +12,7 @@ public:
     V create(std::initializer_list<std::string> l) {
         V v;
         for (auto& s: l) {
-            v.emplace_back(B(s), 0.);
+            v.push_back({B(s), 0.});
         }
 
         return v;
@@ -159,6 +159,16 @@ TEST_F(SparseVectorSortTest, ThisThingCanAlsoCompletelySort) {
 
     check(victim, {"000000", "001100", "001111", "010100", "011000", "011111", "100111", "110000", "110111"});
 }
+
+// TEST_F(SparseVectorSortTest, SparseBug) {
+//     auto victim = create({"000000", "010000", "010100", "110000", "101100", "100111", "101111", "110111", "111111"});
+//     B current("100111"); 
+//     B desired("110011");
+
+//     sortSparseVector(victim, current, desired);
+
+//     check(victim, {"000000", "010000", "010100", "101100", "100111", "101111", "110000", "110111", "111111"});
+// }
 
 
 }

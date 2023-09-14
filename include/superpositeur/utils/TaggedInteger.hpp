@@ -4,7 +4,7 @@ namespace superpositeur {
 namespace utils {
 
 template <typename T> struct TaggedInteger {
-    std::uint64_t value = 0;
+    explicit TaggedInteger(std::uint64_t x) : value(x) {}
 
     constexpr auto operator<=>(TaggedInteger const &other) const = default;
     
@@ -17,6 +17,8 @@ template <typename T> struct TaggedInteger {
     template <typename S>
     friend TaggedInteger<S> operator+(TaggedInteger<S> left,
                                       TaggedInteger<S> right);
+
+    std::uint64_t value = 0;
 };
 
 template <typename T>

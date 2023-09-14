@@ -22,6 +22,9 @@ struct KeyValue {
 template <std::uint64_t MaxNumberOfQubits>
 using SparseVector = std::vector<KeyValue<MaxNumberOfQubits>>; // Association list.
 
+template <std::uint64_t MaxNumberOfQubits>
+using MatrixOfVectors = std::vector<SparseVector<MaxNumberOfQubits>>;
+
 using Sizes = std::vector<std::uint64_t>;
 using Hashes = std::vector<std::uint64_t>;
 
