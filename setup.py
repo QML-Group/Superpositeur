@@ -17,4 +17,9 @@ setup(name = 'superpositeur',
        description = 'Superpositeur is a density matrix simulator for quantum operations',
        author = 'Pablo Le Henaff',
        author_email = 'p.lehenaff@tudelft.nl',
-       ext_modules = [superpositeur])
+       ext_modules = [superpositeur],
+       classifiers=[
+        'Programming Language :: Python :: 3',
+        'License :: OSI Approved :: Apache Software License',
+        'Operating System :: POSIX :: Linux',
+       ],)
