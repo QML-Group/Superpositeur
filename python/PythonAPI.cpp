@@ -240,6 +240,34 @@ static PyObject *PyQuantumState_densityMatrixDiagonal(PyObject *self, PyObject *
     return numpyArray;
 }
 
+class PureStateVisitor {
+public:
+    PureStateVisitor() = default;
+
+    template <std::uint64_t MaxNumberOfQubits>
+    PyObject* operator()(std::span<KeyValue<MaxNumberOfQubits> const> pureStateSpan) {
+        auto* result = PyDict_New();
+
+        for (auto const& [ket, amplitude]: pureStateSpan) {
+            auto* key = PyBytes_FromStringAndSize((char const*) &ket, sizeof(ket));
+            auto* value = PyComplex_FromCComplex(Py_complex{ .real = amplitude.real(), .imag = amplitude.imag() });
+            PyDict_SetItem(result, key, value);
+        }
+
+        return result;
+    }
+
+    PyObject* operator()(std::monostate) {
+        Py_RETURN_NONE;
+    }
+};
+
+static PyObject *PyQuantumState_pureState(PyObject *self, PyObject *Py_UNUSED(ignored)) {
+    auto pureStateSpan = ((PyQuantumState *) self)->state.getPureState();
+    auto result = std::visit(PureStateVisitor(), pureStateSpan);
+    return result;
+}
+
 static PyMethodDef PyQuantumState_methods[] = {
     {   "apply",
         (PyCFunction)(void(*)(void)) PyQuantumState_apply,
@@ -253,6 +281,10 @@ static PyMethodDef PyQuantumState_methods[] = {
         PyQuantumState_densityMatrixDiagonal,
         METH_VARARGS,
         "Return reduced density matrix diagonal" },
+    {   "pureState",
+        (PyCFunction) PyQuantumState_pureState,
+        METH_NOARGS,
+        "Return pure state as dictionary mapping bytes objects to complex amplitudes, or None if the state is not pure" },
     {nullptr}
 };
 

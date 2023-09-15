@@ -449,6 +449,28 @@ public:
     }
 
 private:
+    class PureStateVisitor {
+    public:
+        PureStateVisitor() = default;
+
+        template <std::uint64_t MaxNumberOfQubits>
+        std::variant<std::monostate, std::span<KeyValue<64> const>, std::span<KeyValue<128> const>> operator()(MatrixOfVectors<MaxNumberOfQubits> const& matrixOfVectors) {
+            assert(matrixOfVectors.size() >= 1);
+
+            if (matrixOfVectors.size() > 1) {
+                return std::monostate{};
+            }
+
+            return std::span<KeyValue<MaxNumberOfQubits> const>(matrixOfVectors[0].cbegin(), matrixOfVectors[0].size());
+        }
+    };
+
+public:
+    std::variant<std::monostate, std::span<KeyValue<64> const>, std::span<KeyValue<128> const>> getPureState() {
+        return std::visit(PureStateVisitor(), dataVariant);
+    }
+
+private:
     bool isConsistent() const;
 
     BasisVector<128> currentSortIndices;

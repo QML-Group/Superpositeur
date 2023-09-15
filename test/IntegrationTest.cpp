@@ -28,6 +28,11 @@ TEST_F(IntegrationTest, X) {
     EXPECT_EQ(s.getReducedDensityMatrixFromIndices({0}), Matrix({{0., 0.}, {0., 1.}}));
     EXPECT_EQ(s.getReducedDensityMatrixFromIndices({0, 1}), Matrix({{0., 0., 0., 0.}, {0., 1., 0., 0.}, {0., 0., 0., 0.}, {0., 0., 0., 0.}}));
     EXPECT_EQ(s.getReducedDensityMatrixFromIndices({0, 32}), Matrix({{0., 0., 0., 0.}, {0., 1., 0., 0.}, {0., 0., 0., 0.}, {0., 0., 0., 0.}}));
+
+    auto const pureState = std::get<std::span<KeyValue<64> const>>(s.getPureState());
+    EXPECT_EQ(pureState.size(), 1);
+    EXPECT_EQ(pureState.begin()->ket, BasisVector<64>("1"));
+    EXPECT_NEAR(pureState.begin()->amplitude.real(), 1., 1e-7);
 }
 
 TEST_F(IntegrationTest, XOn37) {
